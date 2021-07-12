@@ -1,0 +1,27 @@
+plugins {
+	id 'java'
+}
+
+version '0.0.1'
+
+sourceCompatibility = JavaVersion.VERSION_1_8
+targetCompatibility = JavaVersion.VERSION_1_8
+
+dependencies {
+	implementation 'net.bytebuddy:byte-buddy-agent:1.11.0'
+	implementation 'net.bytebuddy:byte-buddy:1.11.0'
+	
+	implementation 'net.dv8tion:JDA:4.3.0_296'
+	implementation 'net.sf.trove4j:trove4j:3.0.3'
+}
+
+repositories {
+	jcenter()
+	mavenCentral()
+	
+	maven { url 'https://jitpack.io' }
+	maven {
+		name 'm2-dv8tion'
+		url 'https://m2.dv8tion.net/releases'
+	}
+}
