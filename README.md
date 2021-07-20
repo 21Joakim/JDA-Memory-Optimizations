@@ -36,13 +36,20 @@ dependencies {
 ## Usage
 
 ### Code
-This should be run as early as possible.
+This should be run as early as possible, it will install all non-breaking optimizations.
 
 ```java
-MemoryOptimizations.installAll();
+MemoryOptimizations.installOptimizations();
+```
+
+If you want to remove a field yourself, you can use the `MemoryOptimizations#removeField` method, this must be run **before the class is loaded**, which means you can not do `TextChannelImpl.class.getName()` to get the path!
+
+```
+MemoryOptimizations.removeField("net.dv8tion.jda.internal.entities.TextChannelImpl", "topic");
 ```
 
 ### Launch Options
+
 This uses [byte-buddy](https://github.com/raphw/byte-buddy) to change how some JDA internals work, as such you may have to add the byte-buddy agent as a `-javaagent` launch option, this step may not always be necessary but to be certain the optimizations work it should be performed.
 
 ```bash

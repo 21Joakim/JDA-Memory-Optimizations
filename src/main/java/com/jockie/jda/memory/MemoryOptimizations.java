@@ -6,6 +6,7 @@ import com.jockie.jda.memory.advice.InternAdvice;
 import com.jockie.jda.memory.advice.SetBackedAbstractChannelPermissionOverrideMapAdvice;
 import com.jockie.jda.memory.advice.SetBackedSnowflakeCacheViewImplAdvice;
 import com.jockie.jda.memory.map.TLongObjectHashSet;
+import com.jockie.jda.memory.transformer.RemoveFieldClassFileTransformer;
 
 import gnu.trove.map.hash.TLongObjectHashMap;
 import net.bytebuddy.agent.ByteBuddyAgent;
@@ -25,9 +26,58 @@ import net.dv8tion.jda.internal.utils.cache.AbstractCacheView;
 public class MemoryOptimizations {
 	
 	/**
-	 * Install all available memory optimizations
+	 * Removes the manager field from {@link net.dv8tion.jda.internal.entities.GuildImpl GuildImpl},
+	 * {@link net.dv8tion.jda.internal.entities.AbstractChannelImpl AbstractChannelImpl},
+	 * {@link net.dv8tion.jda.internal.entities.EmoteImpl EmoteImpl},
+	 * {@link net.dv8tion.jda.internal.entities.RoleImpl RoleImpl},
+	 * {@link net.dv8tion.jda.internal.entities.StageInstanceImpl StageInstanceImpl},
+	 * {@link net.dv8tion.jda.internal.entities.PermissionOverrideImpl PermissionOverrideImpl}.
+	 * <br><br>
+	 * <b>Note:</b> Do not use this if you use the getManager method on any of the mentioned classes, these can be installed
+	 * indivdually instead.
+	 * 
+	 * @see #removeField(Instrumentation, String, String)
 	 */
-	public static void installAll() {
+	public static void removeAllManagerFields(Instrumentation instrumentation) {
+		MemoryOptimizations.removeField(instrumentation, "net.dv8tion.jda.internal.entities.GuildImpl", "manager");
+		MemoryOptimizations.removeField(instrumentation, "net.dv8tion.jda.internal.entities.AbstractChannelImpl", "manager");
+		MemoryOptimizations.removeField(instrumentation, "net.dv8tion.jda.internal.entities.EmoteImpl", "manager");
+		MemoryOptimizations.removeField(instrumentation, "net.dv8tion.jda.internal.entities.RoleImpl", "manager");
+		MemoryOptimizations.removeField(instrumentation, "net.dv8tion.jda.internal.entities.StageInstanceImpl", "manager");
+		MemoryOptimizations.removeField(instrumentation, "net.dv8tion.jda.internal.entities.PermissionOverrideImpl", "manager");
+	}
+	
+	/**
+	 * @see #removeField(Instrumentation, String, String)
+	 */
+	public static void removeField(String className, String field) {
+		MemoryOptimizations.removeField(ByteBuddyAgent.install(), className, field);
+	}
+	
+	/**
+	 * Removes the specified field from the specified class, it will overwrite any existing getter and setter method
+	 * with a no-op version, getters will return the default value for the return type, object/array = null and number = 0.
+	 * <br><br>
+	 * <b>Note:</b> Must be run before the class is loaded, preferably as early as possible, in the main method or
+	 * a static initializer. This must also be run before installing any of the optimizations.
+	 * <br>
+	 * <b>Note:</b> Do not use {@link Class#getName()} to get the path as that will load the class and
+	 * result in this not doing anything.
+	 * <br>
+	 * <b>Note:</b> This will not error or cause any problems if you give it an invalid class or field name
+	 * <br><br>
+	 * <b>Savings:</b> The amount of bytes the data type you removed uses, for objects you save 8 bytes per entity
+	 * (or 4 bytes if you are using <a href="https://wiki.openjdk.java.net/display/HotSpot/CompressedOops">CompressedOops</a>)
+	 * regardless if it is set to null or otherwise.
+	 */
+	public static void removeField(Instrumentation instrumentation, String className, String fieldName) {
+		instrumentation.addTransformer(new RemoveFieldClassFileTransformer(className, fieldName));
+	}
+	
+	/**
+	 * Install all available non-breaking optimizations
+	 */
+	public static void installOptimizations() {
 		Instrumentation instrumentation = ByteBuddyAgent.install();
 		
 		MemoryOptimizations.installInternOptimization(instrumentation);
@@ -46,13 +96,15 @@ public class MemoryOptimizations {
 	 * Replaces the default {@link AbstractCacheView} elements field ({@link TLongObjectHashMap} with
 	 * our custom Set implementation ({@link TLongObjectHashSet}) which is somewhat of a hybrid between
 	 * a Map and Set data type.
-	 * 
+	 * <br><br>
 	 * <b>Experimental</b>
 	 * <br>
 	 * 1. The performance impact of this is currently unknown.
 	 * <br>
 	 * 2. This has currently not been extensively tested, we don't know if this
 	 * produces the exact same result as a {@link TLongObjectHashMap}.
+	 * <br><br>
+	 * <b>Savings:</b> 8 bytes for basically every Discord entity
 	 */
 	public static void installSetBackedSnowflakeCacheViewOptimization(Instrumentation instrumentation) {
 		new AgentBuilder.Default()
@@ -66,14 +118,14 @@ public class MemoryOptimizations {
 	}
 	
 	/**
-	 * @see {@link #installSetBackedSnowflakeCacheViewOptimization(Instrumentation))}
+	 * @see #installSetBackedSnowflakeCacheViewOptimization(Instrumentation)
 	 */
 	public static void installSetBackedPermissionOverrideMapOptimization() {
 		MemoryOptimizations.installSetBackedAbstractChannelPermissionOverrideMapOptimization(ByteBuddyAgent.install());
 	}
 	
 	/**
-	 * @see {@link #installSetBackedSnowflakeCacheViewOptimization(Instrumentation))}
+	 * @see #installSetBackedSnowflakeCacheViewOptimization(Instrumentation)
 	 */
 	public static void installSetBackedAbstractChannelPermissionOverrideMapOptimization(Instrumentation instrumentation) {
 		new AgentBuilder.Default()
@@ -95,9 +147,18 @@ public class MemoryOptimizations {
 	
 	/**
 	 * Replaces setX (for String methods) to use {@link String#intern()} for fields that are commonly duplicate
+	 * <br><br>
+	 * <b>Savings:</b> That is a bit complicated
 	 */
 	public static void installInternOptimization(Instrumentation instrumentation) {
 		MemoryOptimizations.installInternAdvice(instrumentation, UserImpl.class, "setName");
+		/* 
+		 * It may seem like the avatarId is uncessary to intern but becuase JDA does not have
+		 * a globally unique user cache (they have one per shard) users are often in the memory
+		 * multiple times.
+		 * 
+		 * The exact savings and whether this has more of a negative impact than positive is unknown.
+		 */
 		MemoryOptimizations.installInternAdvice(instrumentation, UserImpl.class, "setAvatarId");
 		MemoryOptimizations.installInternAdvice(instrumentation, GuildImpl.class, "setName");
 		MemoryOptimizations.installInternAdvice(instrumentation, MemberImpl.class, "setNickname");
@@ -107,7 +168,7 @@ public class MemoryOptimizations {
 	}
 	
 	/**
-	 * @see {@link #installInternAdvice(Instrumentation, Class, String)}
+	 * @see #installInternAdvice(Instrumentation, Class, String)
 	 */
 	public static void installInternAdvice(Class<?> clazz, String methodName) {
 		MemoryOptimizations.installInternAdvice(ByteBuddyAgent.install(), clazz, methodName);
