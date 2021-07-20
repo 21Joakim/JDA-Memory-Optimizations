@@ -120,7 +120,7 @@ public class MemoryOptimizations {
 	/**
 	 * @see #installSetBackedSnowflakeCacheViewOptimization(Instrumentation)
 	 */
-	public static void installSetBackedPermissionOverrideMapOptimization() {
+	public static void installSetBackedAbstractChannelPermissionOverrideMapOptimization() {
 		MemoryOptimizations.installSetBackedAbstractChannelPermissionOverrideMapOptimization(ByteBuddyAgent.install());
 	}
 	
