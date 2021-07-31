@@ -1,4 +1,4 @@
-package com.jockie.jda.memory.transformer;
+package com.jockie.jda.memory.transformer.remove;
 
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;

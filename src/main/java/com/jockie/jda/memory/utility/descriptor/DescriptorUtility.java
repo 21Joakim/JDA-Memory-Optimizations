@@ -2,6 +2,8 @@ package com.jockie.jda.memory.utility.descriptor;
 
 public class DescriptorUtility {
 	
+	private DescriptorUtility() {}
+	
 	private static DescriptorType parseType(String descriptor, int index) {
 		char symbol = descriptor.charAt(++index);
 		

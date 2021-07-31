@@ -1,4 +1,7 @@
-package com.jockie.jda.memory.transformer;
+package com.jockie.jda.memory.transformer.remove;
+
+import com.jockie.jda.memory.transformer.noop.ReturnDefaultMethodVisitor;
+import com.jockie.jda.memory.transformer.noop.ReturnThisMethodVisitor;
 
 import net.bytebuddy.jar.asm.ClassVisitor;
 import net.bytebuddy.jar.asm.FieldVisitor;

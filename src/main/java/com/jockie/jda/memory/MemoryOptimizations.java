@@ -6,7 +6,8 @@ import com.jockie.jda.memory.advice.InternAdvice;
 import com.jockie.jda.memory.advice.SetBackedAbstractChannelPermissionOverrideMapAdvice;
 import com.jockie.jda.memory.advice.SetBackedSnowflakeCacheViewImplAdvice;
 import com.jockie.jda.memory.map.TLongObjectHashSet;
-import com.jockie.jda.memory.transformer.RemoveFieldClassFileTransformer;
+import com.jockie.jda.memory.transformer.discord.imageid.ImageIdClassFileTransformer;
+import com.jockie.jda.memory.transformer.remove.RemoveFieldClassFileTransformer;
 
 import gnu.trove.map.hash.TLongObjectHashMap;
 import net.bytebuddy.agent.ByteBuddyAgent;
@@ -24,6 +25,62 @@ import net.dv8tion.jda.internal.entities.UserImpl;
 import net.dv8tion.jda.internal.utils.cache.AbstractCacheView;
 
 public class MemoryOptimizations {
+	
+	private MemoryOptimizations() {}
+	
+	/**
+	 * @see #installImageIdOptimization(Instrumentation)
+	 */
+	public static void installImageIdOptimization() {
+		MemoryOptimizations.installImageIdOptimization(ByteBuddyAgent.install());
+	}
+	
+	/**
+	 * <b>Considerations</b>
+	 * <br>
+	 * <b>*</b> An empty String is 8 bytes (or 4 bytes if you are using CompressedOops) and an empty custom image id is 17 bytes, 
+	 * if a field has an overwhelming amount of empty values it may not be worth using this optimization as it might have 
+	 * a negative affect on your memory usage.
+	 * <br>
+	 * <b>*</b> If you have a large amount of duplicate users (JDA only stores unique users per shard, so if you have a user across multiple
+	 * shards you will be stroing it multiple times in memory) it may be better to use an intern the avatarId instead of this
+	 * optimization, if you have over 50% (rough estimate, you may see success with lower ratios) unique users this optimization 
+	 * will be better than intern. The best would be if you had a unique global user cache with this optimization.
+	 * <br><br>
+	 * <b>Savings:</b> TL;DR: +39 bytes for every user and guild object with an avatar/icon and -9 bytes (or -13 bytes if you are using 
+	 * <a href="https://wiki.openjdk.java.net/display/HotSpot/CompressedOops">CompressedOops</a>) for every empty avatar/icon.
+	 * <br>
+	 * A 32 character ascii String will use 56 bytes (8 for the Object, 4 for the cached hashcode, 12 for the char array, and 1 byte per character totaling 32 bytes) of memory,
+	 * our optimization will use 17 bytes (2 longs and 1 boolean for whether the image is animated or not) saving us 39 bytes. This is not without drawbacks though, as an
+	 * empty image id with our optimization will still use 17 bytes (because a primtive data type will still take up the same amount of memory even if it's "empty") and an
+	 * empty Object (null reference) will only take up the space for the reference, which is 8 bytes or (4 bytes if you are using CompressedOops).
+	 */
+	/* 
+	 * TODO: Consider an alternative solution which stores the ImageId object instead of the 3 value fields.
+	 * The reason we would want to do this is to negate the memory increase from empty image ids, the only problem with that solution 
+	 * is that it also reduces the memory savings, savings would go down from 39 bytes to 31 bytes and the loss for empty image ids
+	 * would go down from 13 bytes to 0 bytes. Whether this solution would be overall net positive depends on the ratio of filled/empty
+	 * image ids. We could make use of both solutions, one for the commonly filled values and one for the commonly empty values, which
+	 * would give us the best of both worlds.
+	 */
+	public static void installImageIdOptimization(Instrumentation instrumentation) {
+		instrumentation.addTransformer(new ImageIdClassFileTransformer("net.dv8tion.jda.internal.entities.UserImpl", "avatarId"));
+		instrumentation.addTransformer(new ImageIdClassFileTransformer("net.dv8tion.jda.internal.entities.GuildImpl", "iconId"));
+		
+		/*
+		 * These are normally not populated enough to benefit from the optimization
+		 * 
+		 * instrumentation.addTransformer(new DiscordImageIdClassFileTransformer("net.dv8tion.jda.internal.entities.GuildImpl", "splashId"));
+		 * instrumentation.addTransformer(new DiscordImageIdClassFileTransformer("net.dv8tion.jda.internal.entities.GuildImpl", "banner"));
+		 */
+	}
+	
+	/**
+	 * @see #removeAllManagerFields(Instrumentation)
+	 */
+	public static void removeAllManagerFields() {
+		MemoryOptimizations.removeAllManagerFields(ByteBuddyAgent.install());
+	}
 	
 	/**
 	 * Removes the manager field from {@link net.dv8tion.jda.internal.entities.GuildImpl GuildImpl},
@@ -80,6 +137,7 @@ public class MemoryOptimizations {
 	public static void installOptimizations() {
 		Instrumentation instrumentation = ByteBuddyAgent.install();
 		
+		MemoryOptimizations.installImageIdOptimization(instrumentation);
 		MemoryOptimizations.installInternOptimization(instrumentation);
 		MemoryOptimizations.installSetBackedSnowflakeCacheViewOptimization(instrumentation);
 		MemoryOptimizations.installSetBackedAbstractChannelPermissionOverrideMapOptimization(instrumentation);
@@ -152,14 +210,6 @@ public class MemoryOptimizations {
 	 */
 	public static void installInternOptimization(Instrumentation instrumentation) {
 		MemoryOptimizations.installInternAdvice(instrumentation, UserImpl.class, "setName");
-		/* 
-		 * It may seem like the avatarId is uncessary to intern but becuase JDA does not have
-		 * a globally unique user cache (they have one per shard) users are often in the memory
-		 * multiple times.
-		 * 
-		 * The exact savings and whether this has more of a negative impact than positive is unknown.
-		 */
-		MemoryOptimizations.installInternAdvice(instrumentation, UserImpl.class, "setAvatarId");
 		MemoryOptimizations.installInternAdvice(instrumentation, GuildImpl.class, "setName");
 		MemoryOptimizations.installInternAdvice(instrumentation, MemberImpl.class, "setNickname");
 		MemoryOptimizations.installInternAdvice(instrumentation, RoleImpl.class, "setName");

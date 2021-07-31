@@ -1,4 +1,4 @@
-package com.jockie.jda.memory.transformer;
+package com.jockie.jda.memory.transformer.noop;
 
 import net.bytebuddy.jar.asm.MethodVisitor;
 import net.bytebuddy.jar.asm.Opcodes;
