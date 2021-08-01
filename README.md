@@ -2,6 +2,21 @@
 
 Experimental extension library for [JDA](https://github.com/DV8FromTheWorld/JDA/) which attempts to reduce the amount of memory used.
 
+## Content
+* [Bots Using This](#bots-using-this)
+* [Download](#download)
+	* [Gradle](#gradle)
+	* [Maven](#maven)
+* [Usage](#usage)
+	* [Code](#code)
+	* [Launch Options](#launch-options)
+* [Other Tips](#other-tips)
+	* [CompressedOops](#compressedoops)
+
+## Bots Using This
+* Jockie Music
+* Sx4
+
 ## Download
 [![](https://jitpack.io/v/21Joakim/JDA-Memory-Optimizations.svg)](https://jitpack.io/#21Joakim/JDA-Memory-Optimizations)
 
@@ -55,3 +70,9 @@ This uses [byte-buddy](https://github.com/raphw/byte-buddy) to change how some J
 ```bash
 java -javaagent:/path/to/agent.jar -jar Bot.jar
 ```
+
+## Other Tips
+### CompressedOops
+Do everything you can to stay under 32 GB in max heap, the reason for this is very simple, [CompressedOops](https://wiki.openjdk.java.net/display/HotSpot/CompressedOops), which is enabled by default for heaps below 32 GB, this will make all Object references 4 bytes instead of 8 which can be a huge saving in memory. If your current max heap is set to just above 32 GB you are most likely wasting memory and reducing it to below 32 GB will have a positive effect on your memory usage.
+
+You should set the heap to a maximum of 31 GB to be safe, 32 GB may work but you should validate this before using it in production.
