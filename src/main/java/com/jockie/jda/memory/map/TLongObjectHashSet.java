@@ -26,7 +26,7 @@ public class TLongObjectHashSet<T> extends THashSet<T> {
 		}
 		
 		public final boolean execute(T value) {
-			this.target[pos++] = this.set.extractKey(value);
+			this.target[this.pos++] = this.set.extractKey(value);
 			return true;
 		}
 	}
@@ -107,39 +107,6 @@ public class TLongObjectHashSet<T> extends THashSet<T> {
 		this.forEach(new ToLongKeyArrayProceedure<>(this, a));
 		return a;
 	}
-	
-	/*
-	public long[] keys() {
-		long[] keys = new long[this.size()];
-		Object[] values = this._set;
-		
-		for(int i = values.length, j = 0; i-- > 0;) {
-			Object value = values[i];
-			if(value != THashSet.FREE && value != THashSet.REMOVED) {
-				keys[j++] = this.extractKey(value);
-			}
-		}
-		
-		return keys;
-	}
-	
-	public long[] keys(long[] dest) {
-		if(dest.length < this._size) {
-			dest = new long[this._size];
-		}
-
-		Object[] values = this._set;
-
-		for(int i = values.length, j = 0; i-- > 0;) {
-			Object value = values[i];
-			if(value != THashSet.FREE && value != THashSet.REMOVED) {
-				dest[j++] = this.extractKey(value);
-			}
-		}
-		
-		return dest;
-	}
-	*/
 	
 	@SuppressWarnings("unchecked")
 	public boolean retainEntries(TLongObjectProcedure<? super T> procedure) {

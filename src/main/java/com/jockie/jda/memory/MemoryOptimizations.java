@@ -3,6 +3,7 @@ package com.jockie.jda.memory;
 import java.lang.instrument.Instrumentation;
 
 import com.jockie.jda.memory.advice.InternAdvice;
+import com.jockie.jda.memory.advice.SelfUserImplCopyOfAdvice;
 import com.jockie.jda.memory.advice.SetBackedAbstractChannelPermissionOverrideMapAdvice;
 import com.jockie.jda.memory.advice.SetBackedSnowflakeCacheViewImplAdvice;
 import com.jockie.jda.memory.map.TLongObjectHashSet;
@@ -21,6 +22,7 @@ import net.dv8tion.jda.internal.entities.EmoteImpl;
 import net.dv8tion.jda.internal.entities.GuildImpl;
 import net.dv8tion.jda.internal.entities.MemberImpl;
 import net.dv8tion.jda.internal.entities.RoleImpl;
+import net.dv8tion.jda.internal.entities.SelfUserImpl;
 import net.dv8tion.jda.internal.entities.UserImpl;
 import net.dv8tion.jda.internal.utils.cache.AbstractCacheView;
 
@@ -36,24 +38,69 @@ public class MemoryOptimizations {
 	}
 	
 	/**
-	 * <b>Considerations</b>
+	 * See {@link #installImageIdOptimization(Instrumentation, String, String)} for considerations and more information!
+	 * <br><br>
+	 * <b>Savings:</b> +39 bytes for every user and guild object with an avatar/icon and -9 bytes (or -13 bytes if you are using 
+	 * <a href="https://wiki.openjdk.java.net/display/HotSpot/CompressedOops">CompressedOops</a>) for every empty avatar/icon.
+	 * 
+	 * @see #installImageIdOptimization(Instrumentation, String, String)
+	 */
+	public static void installImageIdOptimization(Instrumentation instrumentation) {
+		MemoryOptimizations.installImageIdOptimization(instrumentation, "net.dv8tion.jda.internal.entities.UserImpl", "avatarId");
+		
+		/* Fixes DefaultShardManager only starting a single shard */
+		new AgentBuilder.Default()
+			.disableClassFormatChanges()
+			.with(RedefinitionStrategy.RETRANSFORMATION)
+			.type(ElementMatchers.is(SelfUserImpl.class))
+			.transform((builder, typeDescription, classLoader, module) -> builder.visit(Advice
+				.to(SelfUserImplCopyOfAdvice.class)
+				.on(ElementMatchers.named("copyOf"))))
+			.installOn(instrumentation);
+		
+		MemoryOptimizations.installImageIdOptimization(instrumentation, "net.dv8tion.jda.internal.entities.GuildImpl", "iconId");
+		
+		/*
+		 * These are normally not populated enough to benefit from the optimization
+		 * 
+		 * MemoryOptimizations.installImageIdOptimization(instrumentation, "net.dv8tion.jda.internal.entities.GuildImpl", "splashId");
+		 * MemoryOptimizations.installImageIdOptimization(instrumentation, "net.dv8tion.jda.internal.entities.GuildImpl", "banner");
+		 */
+	}
+	
+	/**
+	 * @see #installImageIdOptimization(Instrumentation, String, String)
+	 */
+	public static void installImageIdOptimization(String className, String fieldName) {
+		MemoryOptimizations.installImageIdOptimization(ByteBuddyAgent.install(), className, fieldName);
+	}
+	
+	/**
+	 * <b>Note:</b> Must be run before the class is loaded, preferably as early as possible, in the main method or
+	 * a static initializer. This must also be run before installing any of the optimizations.
 	 * <br>
-	 * <b>*</b> An empty String is 8 bytes (or 4 bytes if you are using CompressedOops) and an empty custom image id is 17 bytes, 
+	 * <b>Note:</b> Do not use {@link Class#getName()} to get the path as that will load the class and
+	 * result in this not doing anything.
+	 * <br>
+	 * <b>Note:</b> This will not error or cause any problems if you give it an invalid class or field name
+	 * <br><br>
+	 * <b>Consideration:</b> An empty String is 8 bytes (or 4 bytes if you are using CompressedOops) and an empty custom image id is 17 bytes, 
 	 * if a field has an overwhelming amount of empty values it may not be worth using this optimization as it might have 
-	 * a negative affect on your memory usage.
+	 * a negative effect on your memory usage.
 	 * <br>
-	 * <b>*</b> If you have a large amount of duplicate users (JDA only stores unique users per shard, so if you have a user across multiple
+	 * <b>Consideration:</b> If you have a large amount of duplicate users (JDA only stores unique users per shard, so if you have a user across multiple
 	 * shards you will be stroing it multiple times in memory) it may be better to use an intern the avatarId instead of this
 	 * optimization, if you have over 50% (rough estimate, you may see success with lower ratios) unique users this optimization 
 	 * will be better than intern. The best would be if you had a unique global user cache with this optimization.
 	 * <br><br>
-	 * <b>Savings:</b> TL;DR: +39 bytes for every user and guild object with an avatar/icon and -9 bytes (or -13 bytes if you are using 
-	 * <a href="https://wiki.openjdk.java.net/display/HotSpot/CompressedOops">CompressedOops</a>) for every empty avatar/icon.
+	 * <b>Savings:</b> +39 bytes for every image id and -9 bytes (or -13 bytes if you are using 
+	 * <a href="https://wiki.openjdk.java.net/display/HotSpot/CompressedOops">CompressedOops</a>) for every empty image id.
 	 * <br>
-	 * A 32 character ascii String will use 56 bytes (8 for the Object, 4 for the cached hashcode, 12 for the char array, and 1 byte per character totaling 32 bytes) of memory,
-	 * our optimization will use 17 bytes (2 longs and 1 boolean for whether the image is animated or not) saving us 39 bytes. This is not without drawbacks though, as an
-	 * empty image id with our optimization will still use 17 bytes (because a primtive data type will still take up the same amount of memory even if it's "empty") and an
-	 * empty Object (null reference) will only take up the space for the reference, which is 8 bytes or (4 bytes if you are using CompressedOops).
+	 * <b>Savings in-depth:</b> A 32 character ascii String will use 56 bytes (8 for the Object, 4 for the cached hashcode, 12 for the char array, and 1 byte
+	 * per character totaling 32 bytes) of memory, our optimization will use 17 bytes (2 longs and 1 boolean for whether the image is animated or not) saving us
+	 * 39 bytes. This is not without drawbacks though, as an empty image id with our optimization will still use 17 bytes (because a primtive data type will still
+	 * take up the same amount of memory even if it's "empty") and an empty Object (null reference) will only take up the space for the reference, which is 8 bytes
+	 * or (4 bytes if you are using CompressedOops).
 	 */
 	/* 
 	 * TODO: Consider an alternative solution which stores the ImageId object instead of the 3 value fields.
@@ -63,16 +110,8 @@ public class MemoryOptimizations {
 	 * image ids. We could make use of both solutions, one for the commonly filled values and one for the commonly empty values, which
 	 * would give us the best of both worlds.
 	 */
-	public static void installImageIdOptimization(Instrumentation instrumentation) {
-		instrumentation.addTransformer(new ImageIdClassFileTransformer("net.dv8tion.jda.internal.entities.UserImpl", "avatarId"));
-		instrumentation.addTransformer(new ImageIdClassFileTransformer("net.dv8tion.jda.internal.entities.GuildImpl", "iconId"));
-		
-		/*
-		 * These are normally not populated enough to benefit from the optimization
-		 * 
-		 * instrumentation.addTransformer(new DiscordImageIdClassFileTransformer("net.dv8tion.jda.internal.entities.GuildImpl", "splashId"));
-		 * instrumentation.addTransformer(new DiscordImageIdClassFileTransformer("net.dv8tion.jda.internal.entities.GuildImpl", "banner"));
-		 */
+	public static void installImageIdOptimization(Instrumentation instrumentation, String className, String fieldName) {
+		instrumentation.addTransformer(new ImageIdClassFileTransformer(className, fieldName));
 	}
 	
 	/**
