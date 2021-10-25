@@ -6,6 +6,7 @@ import com.jockie.jda.memory.advice.InternAdvice;
 import com.jockie.jda.memory.advice.SelfUserImplCopyOfAdvice;
 import com.jockie.jda.memory.advice.SetBackedAbstractChannelPermissionOverrideMapAdvice;
 import com.jockie.jda.memory.advice.SetBackedSnowflakeCacheViewImplAdvice;
+import com.jockie.jda.memory.advice.SetBackedVoiceChannelConnectedMembersMapAdvice;
 import com.jockie.jda.memory.map.TLongObjectHashSet;
 import com.jockie.jda.memory.transformer.discord.imageid.ImageIdClassFileTransformer;
 import com.jockie.jda.memory.transformer.remove.RemoveFieldClassFileTransformer;
@@ -24,6 +25,7 @@ import net.dv8tion.jda.internal.entities.MemberImpl;
 import net.dv8tion.jda.internal.entities.RoleImpl;
 import net.dv8tion.jda.internal.entities.SelfUserImpl;
 import net.dv8tion.jda.internal.entities.UserImpl;
+import net.dv8tion.jda.internal.entities.VoiceChannelImpl;
 import net.dv8tion.jda.internal.utils.cache.AbstractCacheView;
 
 public class MemoryOptimizations {
@@ -180,6 +182,7 @@ public class MemoryOptimizations {
 		MemoryOptimizations.installInternOptimization(instrumentation);
 		MemoryOptimizations.installSetBackedSnowflakeCacheViewOptimization(instrumentation);
 		MemoryOptimizations.installSetBackedAbstractChannelPermissionOverrideMapOptimization(instrumentation);
+		MemoryOptimizations.installSetBackedVoiceChannelConnectedMembersMapOptimization(instrumentation);
 	}
 	
 	/**
@@ -210,6 +213,27 @@ public class MemoryOptimizations {
 			.type(ElementMatchers.is(AbstractCacheView.class))
 			.transform((builder, typeDescription, classLoader, module) -> builder.visit(Advice
 				.to(SetBackedSnowflakeCacheViewImplAdvice.class)
+				.on(ElementMatchers.isConstructor())))
+			.installOn(instrumentation);
+	}
+	
+	/**
+	 * @see #installSetBackedSnowflakeCacheViewOptimization(Instrumentation)
+	 */
+	public static void installSetBackedVoiceChannelConnectedMembersMapOptimization() {
+		MemoryOptimizations.installSetBackedVoiceChannelConnectedMembersMapOptimization(ByteBuddyAgent.install());
+	}
+	
+	/**
+	 * @see #installSetBackedSnowflakeCacheViewOptimization(Instrumentation)
+	 */
+	public static void installSetBackedVoiceChannelConnectedMembersMapOptimization(Instrumentation instrumentation) {
+		new AgentBuilder.Default()
+			.disableClassFormatChanges()
+			.with(RedefinitionStrategy.RETRANSFORMATION)
+			.type(ElementMatchers.is(VoiceChannelImpl.class))
+			.transform((builder, typeDescription, classLoader, module) -> builder.visit(Advice
+				.to(SetBackedVoiceChannelConnectedMembersMapAdvice.class)
 				.on(ElementMatchers.isConstructor())))
 			.installOn(instrumentation);
 	}
