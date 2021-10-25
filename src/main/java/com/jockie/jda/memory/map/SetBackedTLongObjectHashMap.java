@@ -7,7 +7,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
+import java.util.function.ToLongFunction;
 
 import gnu.trove.TLongCollection;
 import gnu.trove.function.TObjectFunction;
@@ -49,7 +49,7 @@ public class SetBackedTLongObjectHashMap<T> implements TLongObjectMap<T> {
 		
 		@Override
 		public long key() {
-			return this.hash.set.keyFunction.apply(this.value());
+			return this.hash.set.keyFunction.applyAsLong(this.value());
 		}
 		
 		@SuppressWarnings("unchecked")
@@ -100,7 +100,7 @@ public class SetBackedTLongObjectHashMap<T> implements TLongObjectMap<T> {
 	
 	protected TLongObjectHashSet<T> set;
 	
-	public SetBackedTLongObjectHashMap(Function<T, Long> keyFunction) {
+	public SetBackedTLongObjectHashMap(ToLongFunction<T> keyFunction) {
 		this.set = new TLongObjectHashSet<>(keyFunction);
 	}
 	
@@ -271,7 +271,7 @@ public class SetBackedTLongObjectHashMap<T> implements TLongObjectMap<T> {
                 else buf.append(",");
                 
             	@SuppressWarnings("unchecked")
-				long key = this.set.keyFunction.apply((T) values[i]);
+				long key = this.set.keyFunction.applyAsLong((T) values[i]);
                 buf.append(key);
                 
                 buf.append("=");
@@ -330,7 +330,7 @@ public class SetBackedTLongObjectHashMap<T> implements TLongObjectMap<T> {
             return true;
         }
         
-        public boolean containsAll( TLongCollection collection ) {
+        public boolean containsAll(TLongCollection collection) {
             if(collection == this) {
                 return true;
             }
@@ -405,7 +405,7 @@ public class SetBackedTLongObjectHashMap<T> implements TLongObjectMap<T> {
             
             for(int i = values.length; i-- > 0;) {
             	@SuppressWarnings("unchecked")
-				long key = SetBackedTLongObjectHashMap.this.set.keyFunction.apply((T) values[i]);
+				long key = SetBackedTLongObjectHashMap.this.set.keyFunction.applyAsLong((T) values[i]);
                 if((values[i] != THashSet.FREE && values[i] != THashSet.REMOVED) && (Arrays.binarySearch(array, key) < 0)) {
                 	SetBackedTLongObjectHashMap.this.set.removeAt(i);
                     changed = true;
@@ -480,7 +480,7 @@ public class SetBackedTLongObjectHashMap<T> implements TLongObjectMap<T> {
             for(int i = values.length; i-- > 0;) {
                 if((values[i] != THashSet.FREE && values[i] != THashSet.REMOVED)) {
                 	@SuppressWarnings("unchecked")
-                	long key = SetBackedTLongObjectHashMap.this.set.keyFunction.apply((T) values[i]);
+                	long key = SetBackedTLongObjectHashMap.this.set.keyFunction.applyAsLong((T) values[i]);
                     if(!that.contains(key)) {
                         return false;
                     }
@@ -497,7 +497,7 @@ public class SetBackedTLongObjectHashMap<T> implements TLongObjectMap<T> {
             for(int i = values.length; i-- > 0;) {
                 if((values[i] != THashSet.FREE && values[i] != THashSet.REMOVED)) {
                 	@SuppressWarnings("unchecked")
-					long key = SetBackedTLongObjectHashMap.this.set.keyFunction.apply((T) values[i]);
+					long key = SetBackedTLongObjectHashMap.this.set.keyFunction.applyAsLong((T) values[i]);
                     hashcode += HashFunctions.hash(key);
                 }
             }
@@ -517,7 +517,7 @@ public class SetBackedTLongObjectHashMap<T> implements TLongObjectMap<T> {
                     else buf.append(",");
                     
                 	@SuppressWarnings("unchecked")
-					long key = SetBackedTLongObjectHashMap.this.set.keyFunction.apply((T) values[i]);
+					long key = SetBackedTLongObjectHashMap.this.set.keyFunction.applyAsLong((T) values[i]);
                     buf.append(key);
                 }
             }

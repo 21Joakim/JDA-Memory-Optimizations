@@ -1,6 +1,6 @@
 package com.jockie.jda.memory.map;
 
-import java.util.function.Function;
+import java.util.function.ToLongFunction;
 
 import gnu.trove.function.TObjectFunction;
 import gnu.trove.procedure.TLongObjectProcedure;
@@ -31,9 +31,9 @@ public class TLongObjectHashSet<T> extends THashSet<T> {
 		}
 	}
 	
-	protected final Function<T, Long> keyFunction;
+	protected final ToLongFunction<T> keyFunction;
 	
-	public TLongObjectHashSet(Function<T, Long> keyFunction) {
+	public TLongObjectHashSet(ToLongFunction<T> keyFunction) {
 		this.keyFunction = keyFunction;
 	}
 	
@@ -57,10 +57,10 @@ public class TLongObjectHashSet<T> extends THashSet<T> {
 			return (long) object;
 		}
 		
-		return this.keyFunction.apply((T) object);
+		return this.keyFunction.applyAsLong((T) object);
 	}
 	
-	public Function<T, Long> getKeyFunction() {
+	public ToLongFunction<T> getKeyFunction() {
 		return this.keyFunction;
 	}
 	
