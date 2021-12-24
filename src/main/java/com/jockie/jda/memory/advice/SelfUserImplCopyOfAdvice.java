@@ -8,16 +8,16 @@ public class SelfUserImplCopyOfAdvice {
 	
 	@Advice.OnMethodEnter(skipOn=Advice.OnNonDefaultValue.class)
 	public static SelfUserImpl enter(@Advice.Argument(value=0) SelfUserImpl other, @Advice.Argument(value=1) JDAImpl jda) {
-        SelfUserImpl selfUser = new SelfUserImpl(other.getIdLong(), jda);
-        selfUser.setName(other.getName())
-                .setAvatarId(other.getAvatarId())
-                .setDiscriminator(other.getDiscriminator())
-                .setBot(other.isBot());
-        
-        return selfUser
-                .setVerified(other.isVerified())
-                .setMfaEnabled(other.isMfaEnabled())
-                .setApplicationId(other.getApplicationIdLong());
+		SelfUserImpl selfUser = new SelfUserImpl(other.getIdLong(), jda);
+		selfUser.setName(other.getName())
+			.setAvatarId(other.getAvatarId())
+			.setDiscriminator(other.getDiscriminator())
+			.setBot(other.isBot());
+		
+		return selfUser
+			.setVerified(other.isVerified())
+			.setMfaEnabled(other.isMfaEnabled())
+			.setApplicationId(other.getApplicationIdLong());
 	}
 	
 	@Advice.OnMethodExit

@@ -1,7 +1,5 @@
 package com.jockie.jda.memory.map;
 
-import java.util.function.ToLongFunction;
-
 import gnu.trove.function.TObjectFunction;
 import gnu.trove.procedure.TLongObjectProcedure;
 import gnu.trove.procedure.TObjectProcedure;
@@ -9,18 +7,18 @@ import gnu.trove.set.hash.THashSet;
 
 /**
  * Somewhat of a hybrid between a Set and a Map. It stores the Objects in a Set but
- * it uses a property from the Object ({@link #keyFunction}) to get the hash.
+ * it uses a property from the Object ({@link #extractKey(Object)} to get the hash.
  */
-public class TLongObjectHashSet<T> extends THashSet<T> {
+public abstract class AbstractTLongObjectHashSet<T> extends THashSet<T> {
 	
-	public static final class ToLongKeyArrayProceedure<T> implements TObjectProcedure<T> {
+	public static final class ToLongKeyArrayProcedure<T> implements TObjectProcedure<T> {
 		
-		private final TLongObjectHashSet<T> set;
+		private final AbstractTLongObjectHashSet<T> set;
 		
 		private final long[] target;
 		private int pos = 0;
 		
-		public ToLongKeyArrayProceedure(TLongObjectHashSet<T> set, final long[] target) {
+		public ToLongKeyArrayProcedure(AbstractTLongObjectHashSet<T> set, final long[] target) {
 			this.set = set;
 			this.target = target;
 		}
@@ -31,10 +29,18 @@ public class TLongObjectHashSet<T> extends THashSet<T> {
 		}
 	}
 	
-	protected final ToLongFunction<T> keyFunction;
+	public abstract long extractKey(Object object);
 	
-	public TLongObjectHashSet(ToLongFunction<T> keyFunction) {
-		this.keyFunction = keyFunction;
+	public AbstractTLongObjectHashSet() {
+		super();
+	}
+	
+	public AbstractTLongObjectHashSet(int initialCapacity) {
+		super(initialCapacity);
+	}
+	
+	public AbstractTLongObjectHashSet(int initialCapacity, float loadFactor) {
+		super(initialCapacity, loadFactor);
 	}
 	
 	@Override
@@ -49,19 +55,6 @@ public class TLongObjectHashSet<T> extends THashSet<T> {
 		}
 		
 		return this.extractKey(notnull) == this.extractKey(two);
-	}
-	
-	@SuppressWarnings("unchecked")
-	public long extractKey(Object object) {
-		if(object instanceof Long) {
-			return (long) object;
-		}
-		
-		return this.keyFunction.applyAsLong((T) object);
-	}
-	
-	public ToLongFunction<T> getKeyFunction() {
-		return this.keyFunction;
 	}
 	
 	@SuppressWarnings("unchecked")
@@ -94,7 +87,7 @@ public class TLongObjectHashSet<T> extends THashSet<T> {
 	public long[] keys() {
 		long[] result = new long[this.size()];
 		
-		this.forEach(new ToLongKeyArrayProceedure<>(this, result));
+		this.forEach(new ToLongKeyArrayProcedure<>(this, result));
 		return result;
 	}
 	
@@ -104,7 +97,7 @@ public class TLongObjectHashSet<T> extends THashSet<T> {
 			a = new long[size];
 		}
 		
-		this.forEach(new ToLongKeyArrayProceedure<>(this, a));
+		this.forEach(new ToLongKeyArrayProcedure<>(this, a));
 		return a;
 	}
 	

@@ -5,7 +5,7 @@ public class DescriptorUtility {
 	private DescriptorUtility() {}
 	
 	private static DescriptorType parseType(String descriptor, int index) {
-		char symbol = descriptor.charAt(++index);
+		char symbol = descriptor.charAt(index);
 		
 		DataType dataType = DataType.fromSymbol(symbol);
 		if(dataType == null) {
@@ -24,6 +24,10 @@ public class DescriptorUtility {
 	}
 	
 	public static DescriptorType parseMethodReturnType(String descriptor) {
-		return DescriptorUtility.parseType(descriptor, descriptor.indexOf(')'));
+		return DescriptorUtility.parseType(descriptor, descriptor.indexOf(')') + 1);
+	}
+	
+	public static DescriptorType parseFieldType(String descriptor) {
+		return DescriptorUtility.parseType(descriptor, 0);
 	}
 }

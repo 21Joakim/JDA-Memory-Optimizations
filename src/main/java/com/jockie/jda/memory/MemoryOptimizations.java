@@ -1,13 +1,15 @@
 package com.jockie.jda.memory;
 
 import java.lang.instrument.Instrumentation;
+import java.util.Arrays;
+import java.util.HashSet;
 
 import com.jockie.jda.memory.advice.InternAdvice;
 import com.jockie.jda.memory.advice.SelfUserImplCopyOfAdvice;
 import com.jockie.jda.memory.advice.SetBackedAbstractChannelPermissionOverrideMapAdvice;
 import com.jockie.jda.memory.advice.SetBackedSnowflakeCacheViewImplAdvice;
 import com.jockie.jda.memory.advice.SetBackedVoiceChannelConnectedMembersMapAdvice;
-import com.jockie.jda.memory.map.TLongObjectHashSet;
+import com.jockie.jda.memory.map.AbstractTLongObjectHashSet;
 import com.jockie.jda.memory.transformer.discord.imageid.ImageIdClassFileTransformer;
 import com.jockie.jda.memory.transformer.remove.RemoveFieldClassFileTransformer;
 
@@ -31,6 +33,24 @@ import net.dv8tion.jda.internal.utils.cache.AbstractCacheView;
 public class MemoryOptimizations {
 	
 	private MemoryOptimizations() {}
+	
+	private static float loadFactor = 0.75F;
+	
+	/**
+	 * @see #getLoadFactor()
+	 */
+	public static void setLoadFactor(float loadFactor) {
+		MemoryOptimizations.loadFactor = loadFactor;
+	}
+	
+	/**
+	 * @return the load factor which will be used by all JDA maps when installing the map optimization
+	 * ({@link #installSetBackedSnowflakeCacheViewOptimization()}), by default this is set to 0.75, compared
+	 * to the original default of 0.5.
+	 */
+	public static float getLoadFactor() {
+		return MemoryOptimizations.loadFactor;
+	}
 	
 	/**
 	 * @see #installImageIdOptimization(Instrumentation)
@@ -146,10 +166,24 @@ public class MemoryOptimizations {
 	}
 	
 	/**
-	 * @see #removeField(Instrumentation, String, String)
+	 * @see #removeField(Instrumentation, String, String, String[])
 	 */
 	public static void removeField(String className, String field) {
 		MemoryOptimizations.removeField(ByteBuddyAgent.install(), className, field);
+	}
+	
+	/**
+	 * @see #removeField(Instrumentation, String, String, String[])
+	 */
+	public static void removeField(String className, String field, String... relatedMethods) {
+		MemoryOptimizations.removeField(ByteBuddyAgent.install(), className, field, relatedMethods);
+	}
+	
+	/**
+	 * @see #removeField(Instrumentation, String, String, String[])
+	 */
+	public static void removeField(Instrumentation instrumentation, String className, String fieldName) {
+		instrumentation.addTransformer(new RemoveFieldClassFileTransformer(className, fieldName));
 	}
 	
 	/**
@@ -162,14 +196,20 @@ public class MemoryOptimizations {
 	 * <b>Note:</b> Do not use {@link Class#getName()} to get the path as that will load the class and
 	 * result in this not doing anything.
 	 * <br>
-	 * <b>Note:</b> This will not error or cause any problems if you give it an invalid class or field name
+	 * <b>Note:</b> This is only supported for private fields currently, attempting to use it on a public/protected
+	 * field will work but if anything accesses the field outside of the class itself it will error.
+	 * <b>Note:</b> This will not error or cause any problems if you give it an invalid class or field name.
+	 * <br>
 	 * <br><br>
 	 * <b>Savings:</b> The amount of bytes the data type you removed uses, for objects you save 8 bytes per entity
 	 * (or 4 bytes if you are using <a href="https://wiki.openjdk.java.net/display/HotSpot/CompressedOops">CompressedOops</a>)
 	 * regardless if it is set to null or otherwise.
+	 * 
+	 * @param relatedMethods the methods related to this field that need to be replaced with noop variants, by default this
+	 * will be set to "isFieldName", "getFieldName" and "setFieldName"
 	 */
-	public static void removeField(Instrumentation instrumentation, String className, String fieldName) {
-		instrumentation.addTransformer(new RemoveFieldClassFileTransformer(className, fieldName));
+	public static void removeField(Instrumentation instrumentation, String className, String fieldName, String... relatedMethods) {
+		instrumentation.addTransformer(new RemoveFieldClassFileTransformer(className, fieldName, new HashSet<>(Arrays.asList(relatedMethods))));
 	}
 	
 	/**
@@ -179,7 +219,15 @@ public class MemoryOptimizations {
 		Instrumentation instrumentation = ByteBuddyAgent.install();
 		
 		MemoryOptimizations.installImageIdOptimization(instrumentation);
-		MemoryOptimizations.installInternOptimization(instrumentation);
+		
+		/*
+		 * Let's not install the intern optimization by default, String#intern
+		 * can cause issues depending on the setup and the default should just
+		 * be reserved for optimizations without any (or very minimal) side-effects.
+		 * 
+		 * MemoryOptimizations.installInternOptimization(instrumentation);
+		 */
+		
 		MemoryOptimizations.installSetBackedSnowflakeCacheViewOptimization(instrumentation);
 		MemoryOptimizations.installSetBackedAbstractChannelPermissionOverrideMapOptimization(instrumentation);
 		MemoryOptimizations.installSetBackedVoiceChannelConnectedMembersMapOptimization(instrumentation);
@@ -194,7 +242,7 @@ public class MemoryOptimizations {
 	
 	/**
 	 * Replaces the default {@link AbstractCacheView} elements field ({@link TLongObjectHashMap} with
-	 * our custom Set implementation ({@link TLongObjectHashSet}) which is somewhat of a hybrid between
+	 * our custom Set implementation ({@link AbstractTLongObjectHashSet}) which is somewhat of a hybrid between
 	 * a Map and Set data type.
 	 * <br><br>
 	 * <b>Experimental</b>
