@@ -16,18 +16,22 @@ import com.jockie.jda.memory.transformer.remove.RemoveFieldClassFileTransformer;
 import gnu.trove.map.hash.TLongObjectHashMap;
 import net.bytebuddy.agent.ByteBuddyAgent;
 import net.bytebuddy.agent.builder.AgentBuilder;
+import net.bytebuddy.agent.builder.AgentBuilder.Listener;
 import net.bytebuddy.agent.builder.AgentBuilder.RedefinitionStrategy;
 import net.bytebuddy.asm.Advice;
 import net.bytebuddy.dynamic.ClassFileLocator;
 import net.bytebuddy.matcher.ElementMatchers;
+import net.dv8tion.jda.api.entities.AudioChannel;
 import net.dv8tion.jda.internal.entities.AbstractChannelImpl;
-import net.dv8tion.jda.internal.entities.EmoteImpl;
+import net.dv8tion.jda.internal.entities.AbstractStandardGuildChannelImpl;
 import net.dv8tion.jda.internal.entities.GuildImpl;
 import net.dv8tion.jda.internal.entities.MemberImpl;
 import net.dv8tion.jda.internal.entities.RoleImpl;
 import net.dv8tion.jda.internal.entities.SelfUserImpl;
+import net.dv8tion.jda.internal.entities.StageChannelImpl;
 import net.dv8tion.jda.internal.entities.UserImpl;
 import net.dv8tion.jda.internal.entities.VoiceChannelImpl;
+import net.dv8tion.jda.internal.entities.emoji.RichCustomEmojiImpl;
 import net.dv8tion.jda.internal.utils.cache.AbstractCacheView;
 
 public class MemoryOptimizations {
@@ -35,6 +39,8 @@ public class MemoryOptimizations {
 	private MemoryOptimizations() {}
 	
 	private static float loadFactor = 0.75F;
+	
+	private static Listener listener = Listener.StreamWriting.toSystemError().withErrorsOnly();
 	
 	/**
 	 * @see #getLoadFactor()
@@ -50,6 +56,13 @@ public class MemoryOptimizations {
 	 */
 	public static float getLoadFactor() {
 		return MemoryOptimizations.loadFactor;
+	}
+	
+	/**
+	 * Set the byte-buddy listener, this can be used to inform you about errors or when a transformation (optimization) is installed.
+	 */
+	public static void setListener(Listener listener) {
+		MemoryOptimizations.listener = listener;
 	}
 	
 	/**
@@ -69,17 +82,6 @@ public class MemoryOptimizations {
 	 */
 	public static void installImageIdOptimization(Instrumentation instrumentation) {
 		MemoryOptimizations.installImageIdOptimization(instrumentation, "net.dv8tion.jda.internal.entities.UserImpl", "avatarId");
-		
-		/* Fixes DefaultShardManager only starting a single shard */
-		new AgentBuilder.Default()
-			.disableClassFormatChanges()
-			.with(RedefinitionStrategy.RETRANSFORMATION)
-			.type(ElementMatchers.is(SelfUserImpl.class))
-			.transform((builder, typeDescription, classLoader, module) -> builder.visit(Advice
-				.to(SelfUserImplCopyOfAdvice.class)
-				.on(ElementMatchers.named("copyOf"))))
-			.installOn(instrumentation);
-		
 		MemoryOptimizations.installImageIdOptimization(instrumentation, "net.dv8tion.jda.internal.entities.GuildImpl", "iconId");
 		
 		/*
@@ -87,7 +89,23 @@ public class MemoryOptimizations {
 		 * 
 		 * MemoryOptimizations.installImageIdOptimization(instrumentation, "net.dv8tion.jda.internal.entities.GuildImpl", "splashId");
 		 * MemoryOptimizations.installImageIdOptimization(instrumentation, "net.dv8tion.jda.internal.entities.GuildImpl", "banner");
+		 * 
+		 * It can also be installed for these, please note the effectiveness has not been checked for them
+		 * 
+		 * MemoryOptimizations.installImageIdOptimization(instrumentation, "net.dv8tion.jda.internal.entities.MemberImpl", "avatarId");
+		 * MemoryOptimizations.installImageIdOptimization(instrumentation, "net.dv8tion.jda.internal.entities.RoleIcon", "iconId");
 		 */
+		
+		/* Fixes DefaultShardManager only starting a single shard */
+		new AgentBuilder.Default()
+			.disableClassFormatChanges()
+			.with(MemoryOptimizations.listener)
+			.with(RedefinitionStrategy.RETRANSFORMATION)
+			.type(ElementMatchers.is(SelfUserImpl.class))
+			.transform((builder, typeDescription, classLoader, module) -> builder.visit(Advice
+				.to(SelfUserImplCopyOfAdvice.class)
+				.on(ElementMatchers.named("copyOf"))))
+			.installOn(instrumentation);
 	}
 	
 	/**
@@ -134,35 +152,6 @@ public class MemoryOptimizations {
 	 */
 	public static void installImageIdOptimization(Instrumentation instrumentation, String className, String fieldName) {
 		instrumentation.addTransformer(new ImageIdClassFileTransformer(className, fieldName));
-	}
-	
-	/**
-	 * @see #removeAllManagerFields(Instrumentation)
-	 */
-	public static void removeAllManagerFields() {
-		MemoryOptimizations.removeAllManagerFields(ByteBuddyAgent.install());
-	}
-	
-	/**
-	 * Removes the manager field from {@link net.dv8tion.jda.internal.entities.GuildImpl GuildImpl},
-	 * {@link net.dv8tion.jda.internal.entities.AbstractChannelImpl AbstractChannelImpl},
-	 * {@link net.dv8tion.jda.internal.entities.EmoteImpl EmoteImpl},
-	 * {@link net.dv8tion.jda.internal.entities.RoleImpl RoleImpl},
-	 * {@link net.dv8tion.jda.internal.entities.StageInstanceImpl StageInstanceImpl},
-	 * {@link net.dv8tion.jda.internal.entities.PermissionOverrideImpl PermissionOverrideImpl}.
-	 * <br><br>
-	 * <b>Note:</b> Do not use this if you use the getManager method on any of the mentioned classes, these can be installed
-	 * indivdually instead.
-	 * 
-	 * @see #removeField(Instrumentation, String, String)
-	 */
-	public static void removeAllManagerFields(Instrumentation instrumentation) {
-		MemoryOptimizations.removeField(instrumentation, "net.dv8tion.jda.internal.entities.GuildImpl", "manager");
-		MemoryOptimizations.removeField(instrumentation, "net.dv8tion.jda.internal.entities.AbstractChannelImpl", "manager");
-		MemoryOptimizations.removeField(instrumentation, "net.dv8tion.jda.internal.entities.EmoteImpl", "manager");
-		MemoryOptimizations.removeField(instrumentation, "net.dv8tion.jda.internal.entities.RoleImpl", "manager");
-		MemoryOptimizations.removeField(instrumentation, "net.dv8tion.jda.internal.entities.StageInstanceImpl", "manager");
-		MemoryOptimizations.removeField(instrumentation, "net.dv8tion.jda.internal.entities.PermissionOverrideImpl", "manager");
 	}
 	
 	/**
@@ -257,6 +246,7 @@ public class MemoryOptimizations {
 	public static void installSetBackedSnowflakeCacheViewOptimization(Instrumentation instrumentation) {
 		new AgentBuilder.Default()
 			.disableClassFormatChanges()
+			.with(MemoryOptimizations.listener)
 			.with(RedefinitionStrategy.RETRANSFORMATION)
 			.type(ElementMatchers.is(AbstractCacheView.class))
 			.transform((builder, typeDescription, classLoader, module) -> builder.visit(Advice
@@ -276,10 +266,19 @@ public class MemoryOptimizations {
 	 * @see #installSetBackedSnowflakeCacheViewOptimization(Instrumentation)
 	 */
 	public static void installSetBackedVoiceChannelConnectedMembersMapOptimization(Instrumentation instrumentation) {
+		MemoryOptimizations.installSetBackedVoiceChannelConnectedMembersMapOptimization(instrumentation, VoiceChannelImpl.class);
+		MemoryOptimizations.installSetBackedVoiceChannelConnectedMembersMapOptimization(instrumentation, StageChannelImpl.class);
+	}
+	
+	/**
+	 * @see #installSetBackedSnowflakeCacheViewOptimization(Instrumentation)
+	 */
+	public static void installSetBackedVoiceChannelConnectedMembersMapOptimization(Instrumentation instrumentation, Class<? extends AudioChannel> clazz) {
 		new AgentBuilder.Default()
 			.disableClassFormatChanges()
+			.with(MemoryOptimizations.listener)
 			.with(RedefinitionStrategy.RETRANSFORMATION)
-			.type(ElementMatchers.is(VoiceChannelImpl.class))
+			.type(ElementMatchers.is(clazz))
 			.transform((builder, typeDescription, classLoader, module) -> builder.visit(Advice
 				.to(SetBackedVoiceChannelConnectedMembersMapAdvice.class)
 				.on(ElementMatchers.isConstructor())))
@@ -299,8 +298,9 @@ public class MemoryOptimizations {
 	public static void installSetBackedAbstractChannelPermissionOverrideMapOptimization(Instrumentation instrumentation) {
 		new AgentBuilder.Default()
 			.disableClassFormatChanges()
+			.with(MemoryOptimizations.listener)
 			.with(RedefinitionStrategy.RETRANSFORMATION)
-			.type(ElementMatchers.is(AbstractChannelImpl.class))
+			.type(ElementMatchers.is(AbstractStandardGuildChannelImpl.class))
 			.transform((builder, typeDescription, classLoader, module) -> builder.visit(Advice
 				.to(SetBackedAbstractChannelPermissionOverrideMapAdvice.class)
 				.on(ElementMatchers.isConstructor())))
@@ -324,7 +324,7 @@ public class MemoryOptimizations {
 		MemoryOptimizations.installInternAdvice(instrumentation, GuildImpl.class, "setName");
 		MemoryOptimizations.installInternAdvice(instrumentation, MemberImpl.class, "setNickname");
 		MemoryOptimizations.installInternAdvice(instrumentation, RoleImpl.class, "setName");
-		MemoryOptimizations.installInternAdvice(instrumentation, EmoteImpl.class, "setName");
+		MemoryOptimizations.installInternAdvice(instrumentation, RichCustomEmojiImpl.class, "setName");
 		MemoryOptimizations.installInternAdvice(instrumentation, AbstractChannelImpl.class, "setName");
 	}
 	
@@ -340,8 +340,9 @@ public class MemoryOptimizations {
 	 */
 	public static void installInternAdvice(Instrumentation instrumentation, Class<?> clazz, String methodName) {
 		new AgentBuilder.Default()
-			.with(RedefinitionStrategy.RETRANSFORMATION)
 			.disableClassFormatChanges()
+			.with(MemoryOptimizations.listener)
+			.with(RedefinitionStrategy.RETRANSFORMATION)
 			.type(ElementMatchers.is(clazz))
 			.transform((builder, typeDescription, classLoader, module) -> builder.visit(Advice
 				.to(InternAdvice.class, ClassFileLocator.ForClassLoader.ofSystemLoader())

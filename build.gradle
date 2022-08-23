@@ -1,8 +1,8 @@
 plugins {
-	id 'java'
+	id 'java-library'
 }
 
-version '0.0.6'
+version '0.0.7'
 
 sourceCompatibility = JavaVersion.VERSION_1_8
 targetCompatibility = JavaVersion.VERSION_1_8
@@ -38,8 +38,9 @@ dependencies {
 	implementation 'net.bytebuddy:byte-buddy-agent:1.11.0'
 	implementation 'net.bytebuddy:byte-buddy:1.11.0'
 	
-	implementation 'net.dv8tion:JDA:4.3.0_296'
 	implementation 'net.sf.trove4j:trove4j:3.0.3'
+	
+	api 'net.dv8tion:JDA:5.0.0-alpha.17'
 }
 
 repositories {

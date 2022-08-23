@@ -5,12 +5,12 @@ import com.jockie.jda.memory.map.SynchronizedSnowflakeSetBackedTLongObjectHashMa
 
 import gnu.trove.map.TLongObjectMap;
 import net.bytebuddy.asm.Advice;
-import net.dv8tion.jda.internal.entities.VoiceChannelImpl;
+import net.dv8tion.jda.api.entities.AudioChannel;
 
 public class SetBackedVoiceChannelConnectedMembersMapAdvice {
 	
 	@Advice.OnMethodExit
-	public static void exit(@Advice.This VoiceChannelImpl self, @Advice.FieldValue(value="connectedMembers", readOnly=false) TLongObjectMap<?> connectedMembers) {
+	public static void exit(@Advice.This AudioChannel self, @Advice.FieldValue(value="connectedMembers", readOnly=false) TLongObjectMap<?> connectedMembers) {
 		connectedMembers = new SynchronizedSnowflakeSetBackedTLongObjectHashMap<>(0, MemoryOptimizations.getLoadFactor(), new Object());
 	}
 }
