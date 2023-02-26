@@ -6,9 +6,9 @@ import java.util.HashSet;
 
 import com.jockie.jda.memory.advice.InternAdvice;
 import com.jockie.jda.memory.advice.SelfUserImplCopyOfAdvice;
-import com.jockie.jda.memory.advice.SetBackedAbstractChannelPermissionOverrideMapAdvice;
+import com.jockie.jda.memory.advice.SetBackedChannelPermissionOverrideMapAdvice;
 import com.jockie.jda.memory.advice.SetBackedSnowflakeCacheViewImplAdvice;
-import com.jockie.jda.memory.advice.SetBackedVoiceChannelConnectedMembersMapAdvice;
+import com.jockie.jda.memory.advice.SetBackedAudioChannelConnectedMembersMapAdvice;
 import com.jockie.jda.memory.map.AbstractTLongObjectHashSet;
 import com.jockie.jda.memory.transformer.discord.imageid.ImageIdClassFileTransformer;
 import com.jockie.jda.memory.transformer.remove.RemoveFieldClassFileTransformer;
@@ -24,6 +24,7 @@ import net.bytebuddy.matcher.ElementMatchers;
 import net.dv8tion.jda.api.entities.AudioChannel;
 import net.dv8tion.jda.internal.entities.AbstractChannelImpl;
 import net.dv8tion.jda.internal.entities.AbstractStandardGuildChannelImpl;
+import net.dv8tion.jda.internal.entities.CategoryImpl;
 import net.dv8tion.jda.internal.entities.GuildImpl;
 import net.dv8tion.jda.internal.entities.MemberImpl;
 import net.dv8tion.jda.internal.entities.RoleImpl;
@@ -280,7 +281,7 @@ public class MemoryOptimizations {
 			.with(RedefinitionStrategy.RETRANSFORMATION)
 			.type(ElementMatchers.is(clazz))
 			.transform((builder, typeDescription, classLoader, module) -> builder.visit(Advice
-				.to(SetBackedVoiceChannelConnectedMembersMapAdvice.class)
+				.to(SetBackedAudioChannelConnectedMembersMapAdvice.class)
 				.on(ElementMatchers.isConstructor())))
 			.installOn(instrumentation);
 	}
@@ -300,9 +301,9 @@ public class MemoryOptimizations {
 			.disableClassFormatChanges()
 			.with(MemoryOptimizations.listener)
 			.with(RedefinitionStrategy.RETRANSFORMATION)
-			.type(ElementMatchers.is(AbstractStandardGuildChannelImpl.class))
+			.type(ElementMatchers.is(AbstractStandardGuildChannelImpl.class).or(ElementMatchers.is(CategoryImpl.class)))
 			.transform((builder, typeDescription, classLoader, module) -> builder.visit(Advice
-				.to(SetBackedAbstractChannelPermissionOverrideMapAdvice.class)
+				.to(SetBackedChannelPermissionOverrideMapAdvice.class)
 				.on(ElementMatchers.isConstructor())))
 			.installOn(instrumentation);
 	}
