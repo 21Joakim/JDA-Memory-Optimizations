@@ -103,7 +103,7 @@ public class MemoryOptimizations {
 			.with(MemoryOptimizations.listener)
 			.with(RedefinitionStrategy.RETRANSFORMATION)
 			.type(ElementMatchers.is(SelfUserImpl.class))
-			.transform((builder, typeDescription, classLoader, module) -> builder.visit(Advice
+			.transform((builder, typeDescription, classLoader, module, protectionDomain) -> builder.visit(Advice
 				.to(SelfUserImplCopyOfAdvice.class)
 				.on(ElementMatchers.named("copyOf"))))
 			.installOn(instrumentation);
@@ -250,7 +250,7 @@ public class MemoryOptimizations {
 			.with(MemoryOptimizations.listener)
 			.with(RedefinitionStrategy.RETRANSFORMATION)
 			.type(ElementMatchers.is(AbstractCacheView.class))
-			.transform((builder, typeDescription, classLoader, module) -> builder.visit(Advice
+			.transform((builder, typeDescription, classLoader, module, protectionDomain) -> builder.visit(Advice
 				.to(SetBackedSnowflakeCacheViewImplAdvice.class)
 				.on(ElementMatchers.isConstructor())))
 			.installOn(instrumentation);
@@ -280,7 +280,7 @@ public class MemoryOptimizations {
 			.with(MemoryOptimizations.listener)
 			.with(RedefinitionStrategy.RETRANSFORMATION)
 			.type(ElementMatchers.is(clazz))
-			.transform((builder, typeDescription, classLoader, module) -> builder.visit(Advice
+			.transform((builder, typeDescription, classLoader, module, protectionDomain) -> builder.visit(Advice
 				.to(SetBackedAudioChannelConnectedMembersMapAdvice.class)
 				.on(ElementMatchers.isConstructor())))
 			.installOn(instrumentation);
@@ -302,7 +302,7 @@ public class MemoryOptimizations {
 			.with(MemoryOptimizations.listener)
 			.with(RedefinitionStrategy.RETRANSFORMATION)
 			.type(ElementMatchers.is(AbstractStandardGuildChannelImpl.class).or(ElementMatchers.is(CategoryImpl.class)))
-			.transform((builder, typeDescription, classLoader, module) -> builder.visit(Advice
+			.transform((builder, typeDescription, classLoader, module, protectionDomain) -> builder.visit(Advice
 				.to(SetBackedChannelPermissionOverrideMapAdvice.class)
 				.on(ElementMatchers.isConstructor())))
 			.installOn(instrumentation);
@@ -345,7 +345,7 @@ public class MemoryOptimizations {
 			.with(MemoryOptimizations.listener)
 			.with(RedefinitionStrategy.RETRANSFORMATION)
 			.type(ElementMatchers.is(clazz))
-			.transform((builder, typeDescription, classLoader, module) -> builder.visit(Advice
+			.transform((builder, typeDescription, classLoader, module, protectionDomain) -> builder.visit(Advice
 				.to(InternAdvice.class, ClassFileLocator.ForClassLoader.ofSystemLoader())
 				.on(ElementMatchers.named(methodName))))
 			.installOn(instrumentation);
