@@ -5,11 +5,15 @@ import java.util.Arrays;
 import java.util.HashSet;
 
 import com.jockie.jda.memory.advice.InternAdvice;
+import com.jockie.jda.memory.advice.SelfSynchronizedSetBackedAudioChannelConnectedMembersMapAdvice;
+import com.jockie.jda.memory.advice.SelfSynchronizedSetBackedChannelPermissionOverrideMapAdvice;
 import com.jockie.jda.memory.advice.SelfUserImplCopyOfAdvice;
 import com.jockie.jda.memory.advice.SetBackedAudioChannelConnectedMembersMapAdvice;
 import com.jockie.jda.memory.advice.SetBackedChannelPermissionOverrideMapAdvice;
 import com.jockie.jda.memory.advice.SetBackedSnowflakeCacheViewImplAdvice;
 import com.jockie.jda.memory.map.AbstractTLongObjectHashSet;
+import com.jockie.jda.memory.map.SelfSynchronizedSnowflakeSetBackedTLongObjectHashMap;
+import com.jockie.jda.memory.map.SynchronizedSnowflakeSetBackedTLongObjectHashMap;
 import com.jockie.jda.memory.transformer.discord.imageid.ImageIdClassFileTransformer;
 import com.jockie.jda.memory.transformer.remove.RemoveFieldClassFileTransformer;
 
@@ -22,6 +26,8 @@ import net.bytebuddy.asm.Advice;
 import net.bytebuddy.dynamic.ClassFileLocator;
 import net.bytebuddy.matcher.ElementMatchers;
 import net.dv8tion.jda.api.entities.channel.middleman.AudioChannel;
+import net.dv8tion.jda.api.utils.MiscUtil;
+import net.dv8tion.jda.internal.entities.ForumChannelImpl;
 import net.dv8tion.jda.internal.entities.GuildImpl;
 import net.dv8tion.jda.internal.entities.MemberImpl;
 import net.dv8tion.jda.internal.entities.RoleImpl;
@@ -40,6 +46,7 @@ public class MemoryOptimizations {
 	private MemoryOptimizations() {}
 	
 	private static float loadFactor = 0.75F;
+	private static boolean selfSynchronized = false;
 	
 	private static Listener listener = Listener.StreamWriting.toSystemError().withErrorsOnly();
 	
@@ -57,6 +64,39 @@ public class MemoryOptimizations {
 	 */
 	public static float getLoadFactor() {
 		return MemoryOptimizations.loadFactor;
+	}
+	
+	/**
+	 * @see #isSelfSynchronized()
+	 */
+	public static void setSelfSynchronized(boolean selfSynchronized) {
+		MemoryOptimizations.selfSynchronized = selfSynchronized;
+	}
+	
+	/**
+	 * <b>NOTE</b> This is technically a breaking change if you rely on the previous behaviour it is
+	 * disabled by default, note that no code in JDA itself relies on this behaviour so it is safe
+	 * to enable if you do not synchronize on those objects (which realistically you probably do not).
+	 * <br><br>
+	 * 
+	 * This affects optimizations such as
+	 * {@link #installSetBackedAbstractChannelPermissionOverrideMapOptimization(Instrumentation)}
+	 * and
+	 * {@link #installSetBackedVoiceChannelConnectedMembersMapOptimization(Instrumentation)}
+	 * which normally use {@link MiscUtil#newLongMap()}.
+	 * <br><br>
+	 * 
+	 * This should save 24 bytes (or 16 bytes with CompressedOops) per channel and double that if it's
+	 * a voice (audio/stage) channel.
+	 * 
+	 * @return whether or not optimizations which replace a synchronized collection should use
+	 * itself as the mutex instead of a separate object.
+	 * 
+	 * @see SynchronizedSnowflakeSetBackedTLongObjectHashMap
+	 * @see SelfSynchronizedSnowflakeSetBackedTLongObjectHashMap
+	 */
+	public static boolean isSelfSynchronized() {
+		return MemoryOptimizations.selfSynchronized;
 	}
 	
 	/**
@@ -78,6 +118,8 @@ public class MemoryOptimizations {
 	 * <br><br>
 	 * <b>Savings:</b> +39 bytes for every user and guild object with an avatar/icon and -9 bytes (or -13 bytes if you are using 
 	 * <a href="https://wiki.openjdk.java.net/display/HotSpot/CompressedOops">CompressedOops</a>) for every empty avatar/icon.
+	 * 
+	 * @param instrumentation the instrumentation used to install the optimization
 	 * 
 	 * @see #installImageIdOptimization(Instrumentation, String, String)
 	 */
@@ -195,6 +237,7 @@ public class MemoryOptimizations {
 	 * (or 4 bytes if you are using <a href="https://wiki.openjdk.java.net/display/HotSpot/CompressedOops">CompressedOops</a>)
 	 * regardless if it is set to null or otherwise.
 	 * 
+	 * @param instrumentation the instrumentation used to install the optimization
 	 * @param relatedMethods the methods related to this field that need to be replaced with noop variants, by default this
 	 * will be set to "isFieldName", "getFieldName" and "setFieldName"
 	 */
@@ -243,6 +286,8 @@ public class MemoryOptimizations {
 	 * produces the exact same result as a {@link TLongObjectHashMap}.
 	 * <br><br>
 	 * <b>Savings:</b> 8 bytes for basically every Discord entity
+	 * 
+	 * @param instrumentation the instrumentation used to install the optimization
 	 */
 	public static void installSetBackedSnowflakeCacheViewOptimization(Instrumentation instrumentation) {
 		new AgentBuilder.Default()
@@ -260,28 +305,73 @@ public class MemoryOptimizations {
 	 * @see #installSetBackedSnowflakeCacheViewOptimization(Instrumentation)
 	 */
 	public static void installSetBackedVoiceChannelConnectedMembersMapOptimization() {
-		MemoryOptimizations.installSetBackedVoiceChannelConnectedMembersMapOptimization(ByteBuddyAgent.install());
+		MemoryOptimizations.installSetBackedVoiceChannelConnectedMembersMapOptimization(ByteBuddyAgent.install(), MemoryOptimizations.isSelfSynchronized());
 	}
 	
 	/**
+	 * @param selfSynchronized whether or not the replaced synchronized collection should use
+	 * itself as the mutex instead of a separate object. See {@link #isSelfSynchronized()} for
+	 * more information
+	 * 
+	 * @see #installSetBackedSnowflakeCacheViewOptimization(Instrumentation)
+	 */
+	public static void installSetBackedVoiceChannelConnectedMembersMapOptimization(boolean selfSynchronized) {
+		MemoryOptimizations.installSetBackedVoiceChannelConnectedMembersMapOptimization(ByteBuddyAgent.install(), selfSynchronized);
+	}
+	
+	/**
+	 * @param instrumentation the instrumentation used to install the optimization
+	 * 
 	 * @see #installSetBackedSnowflakeCacheViewOptimization(Instrumentation)
 	 */
 	public static void installSetBackedVoiceChannelConnectedMembersMapOptimization(Instrumentation instrumentation) {
-		MemoryOptimizations.installSetBackedVoiceChannelConnectedMembersMapOptimization(instrumentation, VoiceChannelImpl.class);
-		MemoryOptimizations.installSetBackedVoiceChannelConnectedMembersMapOptimization(instrumentation, StageChannelImpl.class);
+		MemoryOptimizations.installSetBackedVoiceChannelConnectedMembersMapOptimization(instrumentation, MemoryOptimizations.isSelfSynchronized());
 	}
 	
 	/**
+	 * @param instrumentation the instrumentation used to install the optimization
+	 * @param selfSynchronized whether or not the replaced synchronized collection should use
+	 * itself as the mutex instead of a separate object. See {@link #isSelfSynchronized()} for
+	 * more information
+	 * 
+	 * @see #installSetBackedSnowflakeCacheViewOptimization(Instrumentation)
+	 */
+	public static void installSetBackedVoiceChannelConnectedMembersMapOptimization(Instrumentation instrumentation, boolean selfSynchronized) {
+		MemoryOptimizations.installSetBackedVoiceChannelConnectedMembersMapOptimization(instrumentation, VoiceChannelImpl.class, selfSynchronized);
+		MemoryOptimizations.installSetBackedVoiceChannelConnectedMembersMapOptimization(instrumentation, StageChannelImpl.class, selfSynchronized);
+	}
+	
+	/**
+	 * @param instrumentation the instrumentation used to install the optimization
+	 * @param clazz the class to install the optimization on
+	 * 
 	 * @see #installSetBackedSnowflakeCacheViewOptimization(Instrumentation)
 	 */
 	public static void installSetBackedVoiceChannelConnectedMembersMapOptimization(Instrumentation instrumentation, Class<? extends AudioChannel> clazz) {
+		MemoryOptimizations.installSetBackedVoiceChannelConnectedMembersMapOptimization(instrumentation, clazz, MemoryOptimizations.isSelfSynchronized());
+	}
+	
+	/**
+	 * @param instrumentation the instrumentation used to install the optimization
+	 * @param clazz the class to install the optimization on
+	 * @param selfSynchronized whether or not the replaced synchronized collection should use
+	 * itself as the mutex instead of a separate object. See {@link #isSelfSynchronized()} for
+	 * more information
+	 * 
+	 * @see #installSetBackedSnowflakeCacheViewOptimization(Instrumentation)
+	 */
+	public static void installSetBackedVoiceChannelConnectedMembersMapOptimization(Instrumentation instrumentation, Class<? extends AudioChannel> clazz, boolean selfSynchronized) {
+		Class<?> adviceClass = selfSynchronized
+			? SelfSynchronizedSetBackedAudioChannelConnectedMembersMapAdvice.class
+			: SetBackedAudioChannelConnectedMembersMapAdvice.class;
+		
 		new AgentBuilder.Default()
 			.disableClassFormatChanges()
 			.with(MemoryOptimizations.listener)
 			.with(RedefinitionStrategy.RETRANSFORMATION)
 			.type(ElementMatchers.is(clazz))
 			.transform((builder, typeDescription, classLoader, module, protectionDomain) -> builder.visit(Advice
-				.to(SetBackedAudioChannelConnectedMembersMapAdvice.class)
+				.to(adviceClass)
 				.on(ElementMatchers.isConstructor())))
 			.installOn(instrumentation);
 	}
@@ -290,20 +380,51 @@ public class MemoryOptimizations {
 	 * @see #installSetBackedSnowflakeCacheViewOptimization(Instrumentation)
 	 */
 	public static void installSetBackedAbstractChannelPermissionOverrideMapOptimization() {
-		MemoryOptimizations.installSetBackedAbstractChannelPermissionOverrideMapOptimization(ByteBuddyAgent.install());
+		MemoryOptimizations.installSetBackedAbstractChannelPermissionOverrideMapOptimization(ByteBuddyAgent.install(), MemoryOptimizations.isSelfSynchronized());
 	}
 	
 	/**
+	 * @param selfSynchronized whether or not the replaced synchronized collection should use
+	 * itself as the mutex instead of a separate object. See {@link #isSelfSynchronized()} for
+	 * more information
+	 * 
+	 * @see #installSetBackedSnowflakeCacheViewOptimization(Instrumentation)
+	 */
+	public static void installSetBackedAbstractChannelPermissionOverrideMapOptimization(boolean selfSynchronized) {
+		MemoryOptimizations.installSetBackedAbstractChannelPermissionOverrideMapOptimization(ByteBuddyAgent.install(), selfSynchronized);
+	}
+	
+	/**
+	 * @param instrumentation the instrumentation used to install the optimization
+	 * 
 	 * @see #installSetBackedSnowflakeCacheViewOptimization(Instrumentation)
 	 */
 	public static void installSetBackedAbstractChannelPermissionOverrideMapOptimization(Instrumentation instrumentation) {
+		MemoryOptimizations.installSetBackedAbstractChannelPermissionOverrideMapOptimization(instrumentation, MemoryOptimizations.isSelfSynchronized());
+	}
+	
+	/**
+	 * @param instrumentation the instrumentation used to install the optimization
+	 * @param selfSynchronized whether or not the replaced synchronized collection should use
+	 * itself as the mutex instead of a separate object. See {@link #isSelfSynchronized()} for
+	 * more information
+	 * 
+	 * @see #installSetBackedSnowflakeCacheViewOptimization(Instrumentation)
+	 */
+	public static void installSetBackedAbstractChannelPermissionOverrideMapOptimization(Instrumentation instrumentation, boolean selfSynchronized) {
+		Class<?> adviceClass = selfSynchronized
+			? SelfSynchronizedSetBackedChannelPermissionOverrideMapAdvice.class
+			: SetBackedChannelPermissionOverrideMapAdvice.class;
+		
 		new AgentBuilder.Default()
 			.disableClassFormatChanges()
 			.with(MemoryOptimizations.listener)
 			.with(RedefinitionStrategy.RETRANSFORMATION)
-			.type(ElementMatchers.is(AbstractStandardGuildChannelImpl.class).or(ElementMatchers.is(CategoryImpl.class)))
+			.type(ElementMatchers.is(AbstractStandardGuildChannelImpl.class)
+				.or(ElementMatchers.is(CategoryImpl.class))
+				.or(ElementMatchers.is(ForumChannelImpl.class)))
 			.transform((builder, typeDescription, classLoader, module, protectionDomain) -> builder.visit(Advice
-				.to(SetBackedChannelPermissionOverrideMapAdvice.class)
+				.to(adviceClass)
 				.on(ElementMatchers.isConstructor())))
 			.installOn(instrumentation);
 	}
@@ -319,6 +440,8 @@ public class MemoryOptimizations {
 	 * Replaces setX (for String methods) to use {@link String#intern()} for fields that are commonly duplicate
 	 * <br><br>
 	 * <b>Savings:</b> That is a bit complicated
+	 * 
+	 * @param instrumentation the instrumentation used to install the optimization
 	 */
 	public static void installInternOptimization(Instrumentation instrumentation) {
 		MemoryOptimizations.installInternAdvice(instrumentation, UserImpl.class, "setName");
@@ -330,6 +453,9 @@ public class MemoryOptimizations {
 	}
 	
 	/**
+	 * @param clazz the class to install the optimization on
+	 * @param methodName the method to install the optimization on
+	 * 
 	 * @see #installInternAdvice(Instrumentation, Class, String)
 	 */
 	public static void installInternAdvice(Class<?> clazz, String methodName) {
@@ -338,6 +464,10 @@ public class MemoryOptimizations {
 	
 	/**
 	 * Replace the argument in a String setter method with {@link String#intern()}
+	 * 
+	 * @param instrumentation the instrumentation used to install the optimization
+	 * @param clazz the class to install the optimization on
+	 * @param methodName the method to install the optimization on
 	 */
 	public static void installInternAdvice(Instrumentation instrumentation, Class<?> clazz, String methodName) {
 		new AgentBuilder.Default()

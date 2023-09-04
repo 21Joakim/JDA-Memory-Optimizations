@@ -1,11 +1,16 @@
 plugins {
 	id 'java-library'
+	id 'maven-publish'
 }
 
-version '0.0.10'
+group 'com.github.21Joakim'
+version '0.0.11'
 
-sourceCompatibility = JavaVersion.VERSION_1_8
-targetCompatibility = JavaVersion.VERSION_1_8
+java {
+	toolchain {
+		languageVersion.set(JavaLanguageVersion.of(8))
+	}
+}
 
 jar {
     archiveName = "${rootProject.name}-${rootProject.version}.jar"
@@ -40,7 +45,7 @@ dependencies {
 	
 	implementation 'net.sf.trove4j:trove4j:3.0.3'
 	
-	api 'net.dv8tion:JDA:5.0.0-alpha.19'
+	api 'net.dv8tion:JDA:5.0.0-beta.6'
 }
 
 repositories {
@@ -51,5 +56,18 @@ repositories {
 	maven {
 		name 'm2-dv8tion'
 		url 'https://m2.dv8tion.net/releases'
+	}
+}
+
+java {
+	withSourcesJar()
+	withJavadocJar()
+}
+
+publishing {
+	publications {
+		maven(MavenPublication) {
+			from components.java
+		}
 	}
 }
