@@ -12,11 +12,11 @@ public class DescriptorUtility {
 			throw new IllegalArgumentException(String.format("Unknown data type for symbol: %s (descriptor: %s)", symbol, descriptor));
 		}
 		
-		if(dataType.equals(DataType.ARRAY)) {
-			return new DescriptorType(dataType, null, DescriptorUtility.parseType(descriptor, index));
+		if(dataType == DataType.ARRAY) {
+			return new DescriptorType(dataType, null, DescriptorUtility.parseType(descriptor, ++index));
 		}
 		
-		if(dataType.equals(DataType.OBJECT)) {
+		if(dataType == DataType.OBJECT) {
 			return new DescriptorType(dataType, descriptor.substring(++index, descriptor.indexOf(';', index)), null);
 		}
 		

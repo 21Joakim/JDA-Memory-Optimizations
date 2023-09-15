@@ -26,6 +26,7 @@ import net.bytebuddy.asm.Advice;
 import net.bytebuddy.dynamic.ClassFileLocator;
 import net.bytebuddy.matcher.ElementMatchers;
 import net.dv8tion.jda.api.entities.channel.middleman.AudioChannel;
+import net.dv8tion.jda.api.events.channel.update.ChannelUpdateSlowmodeEvent;
 import net.dv8tion.jda.api.utils.MiscUtil;
 import net.dv8tion.jda.internal.entities.ForumChannelImpl;
 import net.dv8tion.jda.internal.entities.GuildImpl;
@@ -36,6 +37,7 @@ import net.dv8tion.jda.internal.entities.UserImpl;
 import net.dv8tion.jda.internal.entities.channel.AbstractChannelImpl;
 import net.dv8tion.jda.internal.entities.channel.concrete.CategoryImpl;
 import net.dv8tion.jda.internal.entities.channel.concrete.StageChannelImpl;
+import net.dv8tion.jda.internal.entities.channel.concrete.TextChannelImpl;
 import net.dv8tion.jda.internal.entities.channel.concrete.VoiceChannelImpl;
 import net.dv8tion.jda.internal.entities.channel.middleman.AbstractStandardGuildChannelImpl;
 import net.dv8tion.jda.internal.entities.emoji.RichCustomEmojiImpl;
@@ -200,6 +202,7 @@ public class MemoryOptimizations {
 	/**
 	 * @see #removeField(Instrumentation, String, String, String[])
 	 */
+	@Deprecated
 	public static void removeField(String className, String field) {
 		MemoryOptimizations.removeField(ByteBuddyAgent.install(), className, field);
 	}
@@ -207,6 +210,7 @@ public class MemoryOptimizations {
 	/**
 	 * @see #removeField(Instrumentation, String, String, String[])
 	 */
+	@Deprecated
 	public static void removeField(String className, String field, String... relatedMethods) {
 		MemoryOptimizations.removeField(ByteBuddyAgent.install(), className, field, relatedMethods);
 	}
@@ -214,6 +218,7 @@ public class MemoryOptimizations {
 	/**
 	 * @see #removeField(Instrumentation, String, String, String[])
 	 */
+	@Deprecated
 	public static void removeField(Instrumentation instrumentation, String className, String fieldName) {
 		instrumentation.addTransformer(new RemoveFieldClassFileTransformer(className, fieldName));
 	}
@@ -237,10 +242,19 @@ public class MemoryOptimizations {
 	 * (or 4 bytes if you are using <a href="https://wiki.openjdk.java.net/display/HotSpot/CompressedOops">CompressedOops</a>)
 	 * regardless if it is set to null or otherwise.
 	 * 
+	 * @deprecated Avoid using this unless you have extensively tested the behaviour after removing a field, e.g
+	 * <br>1. ensure that the field was actually removed
+	 * <br>2. ensure the getter/setter method does not produce an error and returns the default value
+	 * <br>3. ensure JDA does not produce a larger than normal amount of events, especially for the specific field you removed,
+	 * e.g, if you removed {@link TextChannelImpl#slowmode} ensure that you do not receive a {@link ChannelUpdateSlowmodeEvent}
+	 * for every channel update event in a channel which has a non-default (0) slowmode value.
+	 * <br><b>The plan is to replace this with a more robust solution in the future, for now we recommend against using this</b>
+	 * 
 	 * @param instrumentation the instrumentation used to install the optimization
 	 * @param relatedMethods the methods related to this field that need to be replaced with noop variants, by default this
 	 * will be set to "isFieldName", "getFieldName" and "setFieldName"
 	 */
+	@Deprecated
 	public static void removeField(Instrumentation instrumentation, String className, String fieldName, String... relatedMethods) {
 		instrumentation.addTransformer(new RemoveFieldClassFileTransformer(className, fieldName, new HashSet<>(Arrays.asList(relatedMethods))));
 	}
