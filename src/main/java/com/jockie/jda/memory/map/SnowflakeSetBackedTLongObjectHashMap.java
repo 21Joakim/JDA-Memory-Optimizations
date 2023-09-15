@@ -19,10 +19,6 @@ public class SnowflakeSetBackedTLongObjectHashMap<T extends ISnowflake> extends 
 	@Override
 	@SuppressWarnings("unchecked")
 	public long extractKey(Object object) {
-		if(object instanceof Long) {
-			return (long) object;
-		}
-		
 		return ((T) object).getIdLong();
 	}
 }

@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Set;
 
 import gnu.trove.TLongCollection;
+import gnu.trove.function.TObjectFunction;
 import gnu.trove.impl.HashFunctions;
 import gnu.trove.impl.hash.TObjectHash;
 import gnu.trove.iterator.TLongIterator;
@@ -59,6 +60,13 @@ public abstract class AbstractSetBackedTLongObjectHashMap<T> extends AbstractTLo
 		@Override
 		public T setValue(T val) {
 			T old = this.value();
+			
+			long key = this.key();
+			long newKey = this.hash.extractKey(val);
+			if(key != newKey) {
+				throw new UnsupportedOperationException();
+			}
+			
 			this.hash._set[this._index] = val;
 			return old;
 		}
@@ -223,6 +231,16 @@ public abstract class AbstractSetBackedTLongObjectHashMap<T> extends AbstractTLo
 	}
 	
 	@Override
+	public void transformValues(TObjectFunction<T, T> function) {
+		super.transformValues(function);
+	}
+	
+	@Override
+	public boolean retainEntries(TLongObjectProcedure<? super T> procedure) {
+		return super.retainEntries(procedure);
+	};
+	
+	@Override
 	public String toString() {
 		final StringBuilder buf = new StringBuilder("{");
 		
@@ -243,6 +261,7 @@ public abstract class AbstractSetBackedTLongObjectHashMap<T> extends AbstractTLo
 			}
 		}
 		
+		buf.append("}");
 		return buf.toString();
 	}
 	
@@ -487,6 +506,7 @@ public abstract class AbstractSetBackedTLongObjectHashMap<T> extends AbstractTLo
 				}
 			}
 			
+			buf.append("}");
 			return buf.toString();
 		}
 	}

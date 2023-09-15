@@ -7,7 +7,7 @@ import gnu.trove.set.hash.THashSet;
 
 /**
  * Somewhat of a hybrid between a Set and a Map. It stores the Objects in a Set but
- * it uses a property from the Object ({@link #extractKey(Object)} to get the hash.
+ * it uses a property from the Object ({@link #extractKey(Object)}) to get the hash.
  */
 public abstract class AbstractTLongObjectHashSet<T> extends THashSet<T> {
 	
@@ -48,6 +48,10 @@ public abstract class AbstractTLongObjectHashSet<T> extends THashSet<T> {
 		return Long.hashCode(this.extractKey(notnull));
 	}
 	
+	protected int hashKey(long key) {
+		return Long.hashCode(key);
+	}
+	
 	@Override
 	protected boolean equals(Object notnull, Object two) {
 		if(two == null || two == REMOVED) {
@@ -57,9 +61,21 @@ public abstract class AbstractTLongObjectHashSet<T> extends THashSet<T> {
 		return this.extractKey(notnull) == this.extractKey(two);
 	}
 	
+	protected boolean equalsKey(long key, Object two) {
+		if(two == null || two == REMOVED) {
+			return false;
+		}
+		
+		return key == this.extractKey(two);
+	}
+	
+	public boolean contains(long key) {
+		return this.indexKey(key) >= 0;
+	}
+	
 	@SuppressWarnings("unchecked")
 	public T get(long key) {
-		int i = this.index(key);
+		int i = this.indexKey(key);
 		if(i >= 0) {
 			return (T) this._set[i];
 		}
@@ -69,7 +85,7 @@ public abstract class AbstractTLongObjectHashSet<T> extends THashSet<T> {
 	
 	@SuppressWarnings("unchecked")
 	public T removeGet(long key) {
-		int i = this.index(key);
+		int i = this.indexKey(key);
 		if(i >= 0) {
 			T value = (T) this._set[i];
 			this.removeAt(i);
@@ -133,5 +149,65 @@ public abstract class AbstractTLongObjectHashSet<T> extends THashSet<T> {
 				values[i] = function.execute((T) values[i]);
 			}
 		}
+	}
+	
+	/* The methods below are copied from gnu.trove.impl.hash.TObjectHash */
+	
+	/**
+	 * Locates the index of key.
+	 *
+	 * @param key an <code>Object</code> value
+	 * @return the index of objKey or -1 if it isn't in the set.
+	 */
+	protected int indexKey(long key) {
+		final int hash = this.hashKey(key) & 0x7fffffff;
+		int index = hash % this._set.length;
+		
+		Object current = this._set[index];
+		if(current == FREE) {
+			return -1;
+		}
+		
+		if(this.equalsKey(key, current)) {
+			return index;
+		}
+		
+		return this.indexRehashedKey(key, index, hash, current);
+	}
+	
+	/**
+	 * Locates the index of key.
+	 *
+	 * @param key target key, know to be non-null
+	 * @param index we start from
+	 * @param hash
+	 * @param current
+	 * @return
+	 */
+	private int indexRehashedKey(long key, int index, int hash, Object current) {
+		final Object[] set = this._set;
+		final int length = set.length;
+		
+		// NOTE: here it has to be REMOVED or FULL (some user-given value)
+		// see Knuth, p. 529
+		int probe = 1 + (hash % (length - 2));
+		final int loopIndex = index;
+		do {
+			index -= probe;
+			if(index < 0) {
+				index += length;
+			}
+			
+			current = set[index];
+			if(current == FREE) {
+				return -1;
+			}
+			
+			if(this.equalsKey(key, current)) {
+				return index;
+			}
+		}while(index != loopIndex);
+		
+		return -1;
 	}
 }
