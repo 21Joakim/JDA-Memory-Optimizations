@@ -4,7 +4,7 @@ plugins {
 }
 
 group 'com.github.21Joakim'
-version '0.0.11'
+version '0.0.12'
 
 java {
 	toolchain {
@@ -13,7 +13,7 @@ java {
 }
 
 jar {
-    archiveName = "${rootProject.name}-${rootProject.version}.jar"
+	archiveName = "${rootProject.name}-${rootProject.version}.jar"
 }
 
 compileJava {
@@ -21,7 +21,7 @@ compileJava {
 }
 
 javadoc {
-    options.encoding = 'UTF-8'
+	options.encoding = 'UTF-8'
 }
 
 task sourcesJar(type: Jar, dependsOn: classes) {
