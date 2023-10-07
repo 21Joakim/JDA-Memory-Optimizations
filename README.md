@@ -79,10 +79,20 @@ Do everything you can to stay under 32 GB in max heap, the reason for this is ve
 You should set the heap to a maximum of 31 GB to be safe, 32 GB may work but you should validate this before using it in production.
 
 ## Optimizations
-Some of the optimizations this library performs. All of these are implemented in a non-breaking way.
-### String#intern
-Using `String#intern`, to remove duplicate instances, on fields which commonly have duplicate values, such as `UserImpl#name`, `GuildImpl#name`, `MemberImpl#nickname`, `RoleImpl#name`, `EmoteImpl#name` and `AbstractChannelImpl#name`.
+Some of the optimizations this library performs. Unless otherwise specified these are implemented in a non-breaking way.
+### Custom set backed map
+By using a custom set backed map implementation for `TLongObjectMap` which gets the key from the stored object directly (e.g `User#getIdLong()`) we can remove the keys array which saves at least `elements * 8 bytes (size of long)` + all the additional elements allocated depending on the load factor.
+
+This implementation is used for all `SnowflakeCacheViewImpl` instances and affects near every single JDA entity (guilds, users, channels, roles, emojis, permission overrides, etc) which means there can be a significant saving.
+### Load Factor
+The load factor of all `TLongObjectMap` instances created by JDA was changed from `0.5` to `0.75`, this reduces the number of unused elements at a slight performance cost. You can change this as you see fit with `MemoryOptimizations#setLoadFactor(float)`.
 ### Storing `UserImpl#avatarId` and `GuildImpl#iconId` in a smaller data format
 Instead of storing the hex based image id as a `String` we use two `long`s and one `boolean` (for whether it is animated or not) which considerably reduces the amount of data a user in memory uses.
-### Custom set backed map
-Using a custom set backed map implementation for all `SnowflakeCacheViewImpl` instances.
+### Custom self-synchronized `TLongObjectMap` (disabled by default)
+Instead of synchronizing on a separate mutex Object we synchronize directly on the instance itself saving a whole `Object` (16 bytes) for every single synchronized map (2 instances for every audio channel and 1 instance for every other channel).
+
+This is disabled by default because it could technically be breaking if you synchronize on the instance itself, however, it is incredibly unlikely you do in which case this is safe to enable with `MemoryOptimizations#setSelfSynchronized(boolean)` for some nice savings.
+
+**Note:** This affects JDA's `MiscUtil#newLongMap()`
+### String#intern (disabled by default)
+Using `String#intern`, to remove duplicate instances, on fields which commonly have duplicate values, such as `UserImpl#name`, `GuildImpl#name`, `MemberImpl#nickname`, `RoleImpl#name`, `EmoteImpl#name` and `AbstractChannelImpl#name`.
