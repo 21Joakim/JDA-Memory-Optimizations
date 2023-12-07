@@ -143,9 +143,7 @@ public abstract class AbstractSetBackedTLongObjectHashMap<T> extends AbstractTLo
 	
 	@Override
 	public T put(long key, T value) {
-		T old = this.get(key);
-		this.add(value);
-		return old;
+		return this.replace(value);
 	}
 	
 	@Override

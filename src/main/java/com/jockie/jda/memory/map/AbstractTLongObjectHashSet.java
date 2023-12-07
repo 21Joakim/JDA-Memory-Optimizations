@@ -74,6 +74,35 @@ public abstract class AbstractTLongObjectHashSet<T> extends THashSet<T> {
 	}
 	
 	@SuppressWarnings("unchecked")
+	public T replace(T obj) {
+		int index = this.insertKey(obj);
+		if(index < 0) {
+			index = -index - 1;
+			
+			Object value = this._set[index];
+			if(value == obj) {
+				return obj;
+			}
+			
+			/* 
+			 * Since the slot is already occupied by the old value
+			 * we don't need to do anything else, just replacing
+			 * it is fine.
+			 */
+			this._set[index] = obj;
+			return (T) value;
+		}
+		
+		this.postInsertHook(this.consumeFreeSlot);
+		return null;
+	}
+	
+	@Override
+	public boolean add(T obj) {
+		return this.replace(obj) != obj;
+	}
+	
+	@SuppressWarnings("unchecked")
 	public T get(long key) {
 		int i = this.indexKey(key);
 		if(i >= 0) {
