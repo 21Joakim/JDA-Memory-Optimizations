@@ -11,7 +11,7 @@ public class SelfUserImplCopyOfAdvice {
 		SelfUserImpl selfUser = new SelfUserImpl(other.getIdLong(), jda);
 		selfUser.setName(other.getName())
 			.setAvatarId(other.getAvatarId())
-			.setDiscriminator(other.getDiscriminator())
+			.setDiscriminator(other.getDiscriminatorInt())
 			.setBot(other.isBot());
 		
 		return selfUser
