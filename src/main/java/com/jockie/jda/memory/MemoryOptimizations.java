@@ -9,6 +9,7 @@ import com.jockie.jda.memory.advice.SelfSynchronizedSetBackedAudioChannelConnect
 import com.jockie.jda.memory.advice.SelfSynchronizedSetBackedChannelPermissionOverrideMapAdvice;
 import com.jockie.jda.memory.advice.SelfUserImplCopyOfAdvice;
 import com.jockie.jda.memory.advice.SetBackedAudioChannelConnectedMembersMapAdvice;
+import com.jockie.jda.memory.advice.SetBackedChannelCacheViewImplAdvice;
 import com.jockie.jda.memory.advice.SetBackedChannelPermissionOverrideMapAdvice;
 import com.jockie.jda.memory.advice.SetBackedSnowflakeCacheViewImplAdvice;
 import com.jockie.jda.memory.map.AbstractTLongObjectHashSet;
@@ -36,12 +37,14 @@ import net.dv8tion.jda.internal.entities.UserImpl;
 import net.dv8tion.jda.internal.entities.channel.AbstractChannelImpl;
 import net.dv8tion.jda.internal.entities.channel.concrete.CategoryImpl;
 import net.dv8tion.jda.internal.entities.channel.concrete.ForumChannelImpl;
+import net.dv8tion.jda.internal.entities.channel.concrete.MediaChannelImpl;
 import net.dv8tion.jda.internal.entities.channel.concrete.StageChannelImpl;
 import net.dv8tion.jda.internal.entities.channel.concrete.TextChannelImpl;
 import net.dv8tion.jda.internal.entities.channel.concrete.VoiceChannelImpl;
 import net.dv8tion.jda.internal.entities.channel.middleman.AbstractStandardGuildChannelImpl;
 import net.dv8tion.jda.internal.entities.emoji.RichCustomEmojiImpl;
 import net.dv8tion.jda.internal.utils.cache.AbstractCacheView;
+import net.dv8tion.jda.internal.utils.cache.ChannelCacheViewImpl;
 
 public class MemoryOptimizations {
 	
@@ -263,8 +266,13 @@ public class MemoryOptimizations {
 	 * Install all available non-breaking optimizations
 	 */
 	public static void installOptimizations() {
-		Instrumentation instrumentation = ByteBuddyAgent.install();
-		
+		MemoryOptimizations.installOptimizations(ByteBuddyAgent.install());
+	}
+	
+	/**
+	 * Install all available non-breaking optimizations
+	 */
+	public static void installOptimizations(Instrumentation instrumentation) {
 		MemoryOptimizations.installImageIdOptimization(instrumentation);
 		
 		/*
@@ -276,6 +284,7 @@ public class MemoryOptimizations {
 		 */
 		
 		MemoryOptimizations.installSetBackedSnowflakeCacheViewOptimization(instrumentation);
+		MemoryOptimizations.installSetBackedChannelCacheViewOptimization(instrumentation);
 		MemoryOptimizations.installSetBackedAbstractChannelPermissionOverrideMapOptimization(instrumentation);
 		MemoryOptimizations.installSetBackedVoiceChannelConnectedMembersMapOptimization(instrumentation);
 	}
@@ -311,6 +320,28 @@ public class MemoryOptimizations {
 			.type(ElementMatchers.is(AbstractCacheView.class))
 			.transform((builder, typeDescription, classLoader, module, protectionDomain) -> builder.visit(Advice
 				.to(SetBackedSnowflakeCacheViewImplAdvice.class)
+				.on(ElementMatchers.isConstructor())))
+			.installOn(instrumentation);
+	}
+	
+	/**
+	 * @see #installSetBackedSnowflakeCacheViewOptimization(Instrumentation)
+	 */
+	public static void installSetBackedChannelCacheViewOptimization() {
+		MemoryOptimizations.installSetBackedChannelCacheViewOptimization(ByteBuddyAgent.install());
+	}
+	
+	/**
+	 * @see #installSetBackedSnowflakeCacheViewOptimization(Instrumentation)
+	 */
+	public static void installSetBackedChannelCacheViewOptimization(Instrumentation instrumentation) {
+		new AgentBuilder.Default()
+			.disableClassFormatChanges()
+			.with(MemoryOptimizations.listener)
+			.with(RedefinitionStrategy.RETRANSFORMATION)
+			.type(ElementMatchers.is(ChannelCacheViewImpl.class))
+			.transform((builder, typeDescription, classLoader, module, protectionDomain) -> builder.visit(Advice
+				.to(SetBackedChannelCacheViewImplAdvice.class)
 				.on(ElementMatchers.isConstructor())))
 			.installOn(instrumentation);
 	}
@@ -436,7 +467,8 @@ public class MemoryOptimizations {
 			.with(RedefinitionStrategy.RETRANSFORMATION)
 			.type(ElementMatchers.is(AbstractStandardGuildChannelImpl.class)
 				.or(ElementMatchers.is(CategoryImpl.class))
-				.or(ElementMatchers.is(ForumChannelImpl.class)))
+				.or(ElementMatchers.is(ForumChannelImpl.class))
+				.or(ElementMatchers.is(MediaChannelImpl.class)))
 			.transform((builder, typeDescription, classLoader, module, protectionDomain) -> builder.visit(Advice
 				.to(adviceClass)
 				.on(ElementMatchers.isConstructor())))
