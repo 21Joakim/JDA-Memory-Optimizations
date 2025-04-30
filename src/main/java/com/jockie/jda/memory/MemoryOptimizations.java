@@ -26,6 +26,7 @@ import net.bytebuddy.agent.builder.AgentBuilder.RedefinitionStrategy;
 import net.bytebuddy.asm.Advice;
 import net.bytebuddy.dynamic.ClassFileLocator;
 import net.bytebuddy.matcher.ElementMatchers;
+import net.dv8tion.jda.api.JDAInfo;
 import net.dv8tion.jda.api.entities.channel.middleman.AudioChannel;
 import net.dv8tion.jda.api.events.channel.update.ChannelUpdateSlowmodeEvent;
 import net.dv8tion.jda.api.utils.MiscUtil;
@@ -79,9 +80,11 @@ public class MemoryOptimizations {
 	}
 	
 	/**
-	 * <b>NOTE</b> This is technically a breaking change if you rely on the previous behaviour it is
-	 * disabled by default, note that no code in JDA itself relies on this behaviour so it is safe
-	 * to enable if you do not synchronize on those objects (which realistically you probably do not).
+	 * <b>NOTE</b> This must be set before calling {@link MemoryOptimizations#installOptimizations()} or similar
+	 * <br><br>
+	 * <b>NOTE</b> This is technically a breaking change if you rely on the previous behaviour which is
+	 * why it is disabled by default, there is currently no code in JDA itself which relies on this behaviour so
+	 * it is safe to enable if you do not synchronize on those objects (which realistically you probably do not).
 	 * <br><br>
 	 * 
 	 * This affects optimizations such as
@@ -348,7 +351,9 @@ public class MemoryOptimizations {
 	
 	/**
 	 * @see #installSetBackedSnowflakeCacheViewOptimization(Instrumentation)
+	 * @deprecated no longer necessary since JDA version 5.5.0
 	 */
+	@Deprecated
 	public static void installSetBackedVoiceChannelConnectedMembersMapOptimization() {
 		MemoryOptimizations.installSetBackedVoiceChannelConnectedMembersMapOptimization(ByteBuddyAgent.install(), MemoryOptimizations.isSelfSynchronized());
 	}
@@ -359,7 +364,9 @@ public class MemoryOptimizations {
 	 * more information
 	 * 
 	 * @see #installSetBackedSnowflakeCacheViewOptimization(Instrumentation)
+	 * @deprecated no longer necessary since JDA version 5.5.0
 	 */
+	@Deprecated
 	public static void installSetBackedVoiceChannelConnectedMembersMapOptimization(boolean selfSynchronized) {
 		MemoryOptimizations.installSetBackedVoiceChannelConnectedMembersMapOptimization(ByteBuddyAgent.install(), selfSynchronized);
 	}
@@ -368,7 +375,9 @@ public class MemoryOptimizations {
 	 * @param instrumentation the instrumentation used to install the optimization
 	 * 
 	 * @see #installSetBackedSnowflakeCacheViewOptimization(Instrumentation)
+	 * @deprecated no longer necessary since JDA version 5.5.0
 	 */
+	@Deprecated
 	public static void installSetBackedVoiceChannelConnectedMembersMapOptimization(Instrumentation instrumentation) {
 		MemoryOptimizations.installSetBackedVoiceChannelConnectedMembersMapOptimization(instrumentation, MemoryOptimizations.isSelfSynchronized());
 	}
@@ -380,7 +389,9 @@ public class MemoryOptimizations {
 	 * more information
 	 * 
 	 * @see #installSetBackedSnowflakeCacheViewOptimization(Instrumentation)
+	 * @deprecated no longer necessary since JDA version 5.5.0
 	 */
+	@Deprecated
 	public static void installSetBackedVoiceChannelConnectedMembersMapOptimization(Instrumentation instrumentation, boolean selfSynchronized) {
 		MemoryOptimizations.installSetBackedVoiceChannelConnectedMembersMapOptimization(instrumentation, VoiceChannelImpl.class, selfSynchronized);
 		MemoryOptimizations.installSetBackedVoiceChannelConnectedMembersMapOptimization(instrumentation, StageChannelImpl.class, selfSynchronized);
@@ -391,7 +402,9 @@ public class MemoryOptimizations {
 	 * @param clazz the class to install the optimization on
 	 * 
 	 * @see #installSetBackedSnowflakeCacheViewOptimization(Instrumentation)
+	 * @deprecated no longer necessary since JDA version 5.5.0
 	 */
+	@Deprecated
 	public static void installSetBackedVoiceChannelConnectedMembersMapOptimization(Instrumentation instrumentation, Class<? extends AudioChannel> clazz) {
 		MemoryOptimizations.installSetBackedVoiceChannelConnectedMembersMapOptimization(instrumentation, clazz, MemoryOptimizations.isSelfSynchronized());
 	}
@@ -404,8 +417,14 @@ public class MemoryOptimizations {
 	 * more information
 	 * 
 	 * @see #installSetBackedSnowflakeCacheViewOptimization(Instrumentation)
+	 * @deprecated no longer necessary since JDA version 5.5.0
 	 */
+	@Deprecated
 	public static void installSetBackedVoiceChannelConnectedMembersMapOptimization(Instrumentation instrumentation, Class<? extends AudioChannel> clazz, boolean selfSynchronized) {
+		if(Integer.parseInt(JDAInfo.VERSION_MAJOR) >= 5 && Integer.parseInt(JDAInfo.VERSION_MINOR) >= 5) {
+			return;
+		}
+		
 		Class<?> adviceClass = selfSynchronized
 			? SelfSynchronizedSetBackedAudioChannelConnectedMembersMapAdvice.class
 			: SetBackedAudioChannelConnectedMembersMapAdvice.class;
