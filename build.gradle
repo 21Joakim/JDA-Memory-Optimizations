@@ -13,7 +13,7 @@ java {
 }
 
 jar {
-	archiveName = "${rootProject.name}-${rootProject.version}.jar"
+	archiveFileName = "${rootProject.name}-${rootProject.version}.jar"
 }
 
 compileJava {
@@ -25,12 +25,12 @@ javadoc {
 }
 
 task sourcesJar(type: Jar, dependsOn: classes) {
-	classifier = 'sources'
+	archiveClassifier = 'sources'
 	from sourceSets.main.allSource
 }
 
 task javadocJar(type: Jar, dependsOn: javadoc) {
-	classifier = 'javadoc'
+	archiveClassifier = 'javadoc'
 	from javadoc.destinationDir
 }
 
@@ -45,7 +45,7 @@ dependencies {
 	
 	implementation 'net.sf.trove4j:trove4j:3.0.3'
 	
-	api 'net.dv8tion:JDA:5.0.0-beta.20'
+	api 'net.dv8tion:JDA:5.4.0'
 }
 
 repositories {
