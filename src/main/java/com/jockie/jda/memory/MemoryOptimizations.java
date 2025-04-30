@@ -421,7 +421,16 @@ public class MemoryOptimizations {
 	 */
 	@Deprecated
 	public static void installSetBackedVoiceChannelConnectedMembersMapOptimization(Instrumentation instrumentation, Class<? extends AudioChannel> clazz, boolean selfSynchronized) {
-		if(Integer.parseInt(JDAInfo.VERSION_MAJOR) >= 5 && Integer.parseInt(JDAInfo.VERSION_MINOR) >= 5) {
+		String versionMajor, versionMinor;
+		try {
+			versionMajor = (String) JDAInfo.class.getDeclaredField("VERSION_MAJOR").get(null);
+			versionMinor = (String) JDAInfo.class.getDeclaredField("VERSION_MINOR").get(null);
+		}catch(IllegalArgumentException | IllegalAccessException | NoSuchFieldException | SecurityException e) {
+			new IllegalStateException("Could not get the JDAInfo version, the 'set-backed voice channel connected members map optimization' will not be installed.", e).printStackTrace();
+			return;
+		}
+		
+		if(Integer.parseInt(versionMajor) >= 5 && Integer.parseInt(versionMinor) >= 5) {
 			return;
 		}
 		
