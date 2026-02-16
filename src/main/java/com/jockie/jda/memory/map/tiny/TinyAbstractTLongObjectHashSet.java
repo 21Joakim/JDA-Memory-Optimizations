@@ -1,15 +1,16 @@
 package com.jockie.jda.memory.map.tiny;
 
+import com.jockie.jda.memory.map.tiny.trove.TinyTHashSet;
+
 import gnu.trove.function.TObjectFunction;
 import gnu.trove.procedure.TLongObjectProcedure;
 import gnu.trove.procedure.TObjectProcedure;
-import gnu.trove.set.hash.THashSet;
 
 /**
  * Somewhat of a hybrid between a Set and a Map. It stores the Objects in a Set but
  * it uses a property from the Object ({@link #extractKey(Object)}) to get the hash.
  */
-public abstract class TinyAbstractTLongObjectHashSet<T> extends THashSet<T> {
+public abstract class TinyAbstractTLongObjectHashSet<T> extends TinyTHashSet<T> {
 	
 	public static final class TinyToLongKeyArrayProcedure<T> implements TObjectProcedure<T> {
 		
@@ -157,7 +158,7 @@ public abstract class TinyAbstractTLongObjectHashSet<T> extends THashSet<T> {
 		try {
 			for(int i = values.length; i-- > 0;) {
 				Object value = values[i];
-				if((value != THashSet.FREE && value != THashSet.REMOVED) && !procedure.execute(this.extractKey(value), (T) value)) {
+				if((value != TinyTHashSet.FREE && value != TinyTHashSet.REMOVED) && !procedure.execute(this.extractKey(value), (T) value)) {
 					this.removeAt(i);
 					modified = true;
 				}
@@ -174,7 +175,7 @@ public abstract class TinyAbstractTLongObjectHashSet<T> extends THashSet<T> {
 		Object[] values = this._set;
 		for(int i = values.length; i-- > 0;) {
 			Object value = values[i];
-			if(value != THashSet.FREE && value != THashSet.REMOVED) {
+			if(value != TinyTHashSet.FREE && value != TinyTHashSet.REMOVED) {
 				values[i] = function.execute((T) values[i]);
 			}
 		}

@@ -8,20 +8,21 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
+import com.jockie.jda.memory.map.tiny.trove.TinyTHashSet;
+import com.jockie.jda.memory.map.tiny.trove.TinyTObjectHash;
+import com.jockie.jda.memory.map.tiny.trove.TinyTObjectHashIterator;
+
 import gnu.trove.TLongCollection;
 import gnu.trove.function.TObjectFunction;
 import gnu.trove.impl.HashFunctions;
-import gnu.trove.impl.hash.TObjectHash;
 import gnu.trove.iterator.TLongIterator;
 import gnu.trove.iterator.TLongObjectIterator;
-import gnu.trove.iterator.hash.TObjectHashIterator;
 import gnu.trove.map.TLongObjectMap;
 import gnu.trove.map.hash.TLongObjectHashMap;
 import gnu.trove.procedure.TLongObjectProcedure;
 import gnu.trove.procedure.TLongProcedure;
 import gnu.trove.procedure.TObjectProcedure;
 import gnu.trove.set.TLongSet;
-import gnu.trove.set.hash.THashSet;
 
 /**
  * Compatibility between {@link TinyAbstractTLongObjectHashSet} and {@link TLongObjectMap}.
@@ -31,7 +32,7 @@ import gnu.trove.set.hash.THashSet;
  */
 public abstract class TinyAbstractSetBackedTLongObjectHashMap<T> extends TinyAbstractTLongObjectHashSet<T> implements TLongObjectMap<T> {
 	
-	protected static class TinySetBackedTLongObjectHashMapIterator<T> extends TObjectHashIterator<T> implements TLongObjectIterator<T> {
+	protected static class TinySetBackedTLongObjectHashMapIterator<T> extends TinyTObjectHashIterator<T> implements TLongObjectIterator<T> {
 		
 		protected final TinyAbstractSetBackedTLongObjectHashMap<T> hash;
 		
@@ -201,7 +202,7 @@ public abstract class TinyAbstractSetBackedTLongObjectHashMap<T> extends TinyAbs
 		Object[] values = this._set;
 		for(int i = values.length; i-- > 0;) {
 			Object value = values[i];
-			if((value != THashSet.FREE && value != THashSet.REMOVED) && !procedure.execute(this.extractKey(value))) {
+			if((value != TinyTHashSet.FREE && value != TinyTHashSet.REMOVED) && !procedure.execute(this.extractKey(value))) {
 				return false;
 			}
 		}
@@ -220,7 +221,7 @@ public abstract class TinyAbstractSetBackedTLongObjectHashMap<T> extends TinyAbs
 		Object[] values = this._set;
 		for(int i = values.length; i-- > 0;) {
 			Object value = values[i];
-			if((value != THashSet.FREE && value != THashSet.REMOVED) && !procedure.execute(this.extractKey(value), (T) value)) {
+			if((value != TinyTHashSet.FREE && value != TinyTHashSet.REMOVED) && !procedure.execute(this.extractKey(value), (T) value)) {
 				return false;
 			}
 		}
@@ -246,7 +247,7 @@ public abstract class TinyAbstractSetBackedTLongObjectHashMap<T> extends TinyAbs
 		
 		Object[] values = this._set;
 		for(int i = values.length; i-- > 0;) {
-			if((values[i] != THashSet.FREE && values[i] != THashSet.REMOVED)) {
+			if((values[i] != TinyTHashSet.FREE && values[i] != TinyTHashSet.REMOVED)) {
 				if(first) {
 					first = false;
 				}else{
@@ -391,7 +392,7 @@ public abstract class TinyAbstractSetBackedTLongObjectHashMap<T> extends TinyAbs
 			Object[] values = this.map._set;
 			
 			for(int i = values.length; i-- > 0;) {
-				if((values[i] != THashSet.FREE && values[i] != THashSet.REMOVED) && (Arrays.binarySearch(array, this.map.extractKey(values[i])) < 0)) {
+				if((values[i] != TinyTHashSet.FREE && values[i] != TinyTHashSet.REMOVED) && (Arrays.binarySearch(array, this.map.extractKey(values[i])) < 0)) {
 					this.map.removeAt(i);
 					changed = true;
 				}
@@ -463,7 +464,7 @@ public abstract class TinyAbstractSetBackedTLongObjectHashMap<T> extends TinyAbs
 			
 			Object[] values = this.map._set;
 			for(int i = values.length; i-- > 0;) {
-				if((values[i] != THashSet.FREE && values[i] != THashSet.REMOVED)) {
+				if((values[i] != TinyTHashSet.FREE && values[i] != TinyTHashSet.REMOVED)) {
 					if(!that.contains(this.map.extractKey(values[i]))) {
 						return false;
 					}
@@ -478,7 +479,7 @@ public abstract class TinyAbstractSetBackedTLongObjectHashMap<T> extends TinyAbs
 			
 			Object[] values = this.map._set;
 			for(int i = values.length; i-- > 0;) {
-				if((values[i] != THashSet.FREE && values[i] != THashSet.REMOVED)) {
+				if((values[i] != TinyTHashSet.FREE && values[i] != TinyTHashSet.REMOVED)) {
 					hashcode += HashFunctions.hash(this.map.extractKey(values[i]));
 				}
 			}
@@ -493,7 +494,7 @@ public abstract class TinyAbstractSetBackedTLongObjectHashMap<T> extends TinyAbs
 			
 			Object[] values = this.map._set;
 			for(int i = values.length; i-- > 0;) {
-				if((values[i] != THashSet.FREE && values[i] != THashSet.REMOVED)) {
+				if((values[i] != TinyTHashSet.FREE && values[i] != TinyTHashSet.REMOVED)) {
 					if(first) {
 						first = false;
 					}else{
@@ -532,7 +533,7 @@ public abstract class TinyAbstractSetBackedTLongObjectHashMap<T> extends TinyAbs
 			Object[] values = this.map._set;
 			
 			for(int i = values.length; i-- > 0;) {
-				if(values[i] != TObjectHash.FREE && values[i] != TObjectHash.REMOVED) {
+				if(values[i] != TinyTObjectHash.FREE && values[i] != TinyTObjectHash.REMOVED) {
 					 if(value == values[i] || (null != values[i] && values[i].equals(value))) {
 						 this.map.removeAt(i);
 						 
