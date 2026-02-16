@@ -21,10 +21,6 @@
 
 package com.jockie.jda.memory.map.tiny.trove;
 
-import gnu.trove.impl.hash.TObjectHash;
-import gnu.trove.impl.hash.THashIterator;
-
-
 /**
  * Iterator for hashtables that use open addressing to resolve collisions.
  *
@@ -34,12 +30,12 @@ import gnu.trove.impl.hash.THashIterator;
  * @version $Id: TObjectHashIterator.java,v 1.1.2.4 2009/10/09 01:44:34 robeden Exp $
  */
 
-public class TinyTObjectHashIterator<E> extends THashIterator<E> {
+public class TinyTObjectHashIterator<E> extends TinyTHashIterator<E> {
 
-    protected final TObjectHash _objectHash;
+    protected final TinyTObjectHash _objectHash;
 
 
-    public TinyTObjectHashIterator( TObjectHash<E> hash ) {
+    public TinyTObjectHashIterator( TinyTObjectHash<E> hash ) {
         super( hash );
         _objectHash = hash;
     }
@@ -48,7 +44,7 @@ public class TinyTObjectHashIterator<E> extends THashIterator<E> {
     @SuppressWarnings("unchecked")
     protected E objectAtIndex( int index ) {
         Object obj = _objectHash._set[index];
-        if ( obj == TObjectHash.FREE || obj == TObjectHash.REMOVED ) {
+        if ( obj == TinyTObjectHash.FREE || obj == TinyTObjectHash.REMOVED ) {
             return null;
         }
         return (E) obj;

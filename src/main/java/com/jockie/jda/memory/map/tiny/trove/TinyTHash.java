@@ -21,7 +21,6 @@
 package com.jockie.jda.memory.map.tiny.trove;
 
 import gnu.trove.impl.Constants;
-import gnu.trove.impl.PrimeFinder;
 
 import java.io.Externalizable;
 import java.io.ObjectOutput;
@@ -196,9 +195,9 @@ abstract public class TinyTHash implements Externalizable {
      */
     public void ensureCapacity( int desiredCapacity ) {
         if ( desiredCapacity > ( _maxSize - size() ) ) {
-            rehash( PrimeFinder.nextPrime(Math.max( _size + 1,
+            rehash( TinyPrimeFinder.nextPrime(Math.max( _size + 1,
                saturatedCast( fastCeil( ( desiredCapacity + _size ) / (double) _loadFactor) + 1 ) ) ) );
-            if ( capacity() >= PrimeFinder.largestPrime ) {
+            if ( capacity() >= TinyPrimeFinder.largestPrime ) {
                 _loadFactor = 1.0f;
             }
             computeMaxSize( capacity() );
@@ -208,7 +207,7 @@ abstract public class TinyTHash implements Externalizable {
 
     /**
      * Compresses the hashtable to the minimum prime size (as defined
-     * by PrimeFinder) that will hold all of the elements currently in
+     * by TinyPrimeFinder) that will hold all of the elements currently in
      * the table.  If you have done a lot of <tt>remove</tt>
      * operations and plan to do a lot of queries or insertions or
      * iteration, it is a good idea to invoke this method.  Doing so
@@ -224,7 +223,7 @@ abstract public class TinyTHash implements Externalizable {
      */
     public void compact() {
         // need at least one free spot for open addressing
-        rehash( PrimeFinder.nextPrime( Math.max( _size + 1,
+        rehash( TinyPrimeFinder.nextPrime( Math.max( _size + 1,
 	        saturatedCast( fastCeil( _size / (double) _loadFactor ) + 1 ) ) ) );
         computeMaxSize( capacity() );
 
@@ -318,8 +317,8 @@ abstract public class TinyTHash implements Externalizable {
     protected int setUp( int initialCapacity ) {
         int capacity;
 
-        capacity = PrimeFinder.nextPrime( initialCapacity );
-        if ( capacity >= PrimeFinder.largestPrime ) {
+        capacity = TinyPrimeFinder.nextPrime( initialCapacity );
+        if ( capacity >= TinyPrimeFinder.largestPrime ) {
             _loadFactor = 1.0f;
         }
         computeMaxSize( capacity );
@@ -413,7 +412,7 @@ abstract public class TinyTHash implements Externalizable {
             // if we've grown beyond our maximum size, double capacity;
             // if we've exhausted the free spots, rehash to the same capacity,
             // which will free up any stale removed slots for reuse.
-            int newCapacity = _size > _maxSize ? PrimeFinder.nextPrime( capacity() << 1 ) : capacity();
+            int newCapacity = _size > _maxSize ? TinyPrimeFinder.nextPrime( capacity() << 1 ) : capacity();
             rehash( newCapacity );
             computeMaxSize( capacity() );
         }

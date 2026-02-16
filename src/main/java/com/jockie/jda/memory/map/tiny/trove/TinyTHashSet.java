@@ -20,11 +20,9 @@
 
 package com.jockie.jda.memory.map.tiny.trove;
 
-import gnu.trove.impl.hash.TObjectHash;
 import gnu.trove.impl.HashFunctions;
 import gnu.trove.procedure.TObjectProcedure;
 import gnu.trove.procedure.array.ToObjectArrayProceedure;
-import gnu.trove.iterator.hash.TObjectHashIterator;
 
 import java.io.*;
 import java.util.Collection;
@@ -44,7 +42,7 @@ import java.lang.reflect.Array;
  * @version $Id: THashSet.java,v 1.1.2.8 2010/03/02 04:09:50 robeden Exp $
  */
 
-public class TinyTHashSet<E> extends TObjectHash<E>
+public class TinyTHashSet<E> extends TinyTObjectHash<E>
         implements Set<E>, Iterable<E>, Externalizable {
 
     static final long serialVersionUID = 1L;
@@ -257,8 +255,8 @@ public class TinyTHashSet<E> extends TObjectHash<E>
      * @return an <code>Iterator</code> value
      */
     @SuppressWarnings({"unchecked"})
-    public TObjectHashIterator<E> iterator() {
-        return new TObjectHashIterator<E>(this);
+    public TinyTObjectHashIterator<E> iterator() {
+        return new TinyTObjectHashIterator<E>(this);
     }
 
 
