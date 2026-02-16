@@ -57,12 +57,34 @@ abstract public class TinyTHash implements Externalizable {
      */
     protected static final int DEFAULT_CAPACITY = Constants.DEFAULT_CAPACITY;
 
+    private static double decodeLoadFactor(byte loadFactor) {
+        return (loadFactor & 0xff) * 0.005d;
+    }
+
+    private static byte encodeLoadFactor(double loadFactor) {
+        double value = (Math.round(loadFactor * (1d/0.005d)) / (1d/0.005d));
+        return (byte) (value/0.005d);
+    }
+
+    private static final int USHORT_MAX_VALUE = (1 << 16) - 1;
+
+    private static short ushort(int value) {
+        if ((value & ~USHORT_MAX_VALUE) != 0) {
+            throw new IllegalArgumentException("int (" + value + ") is out of bounds for unsigned short");
+        }
+        
+        return (short) value;
+    }
+
+    private static int uint(short ushort) {
+        return ushort & 0xffff;
+    }
 
     /** the current number of occupied slots in the hash. */
-    protected transient int _size;
+    private transient short _size;
 
     /** the current number of free slots in the hash. */
-    protected transient int _free;
+    private transient short _free;
 
     /**
      * Determines how full the internal table can become before
@@ -71,27 +93,27 @@ abstract public class TinyTHash implements Externalizable {
      * large as you can get in open addressing without hurting
      * performance.  Cf. Knuth, Volume 3., Chapter 6.
      */
-    protected float _loadFactor;
+    private byte _loadFactor;
 
     /**
      * The maximum number of elements allowed without allocating more
      * space.
      */
-    protected int _maxSize;
+    private short _maxSize;
 
 
     /** The number of removes that should be performed before an auto-compaction occurs. */
-    protected int _autoCompactRemovesRemaining;
+    private short _autoCompactRemovesRemaining;
 
     /**
      * The auto-compaction factor for the table.
      *
      * @see #setAutoCompactionFactor
      */
-    protected float _autoCompactionFactor;
+    private byte _autoCompactionFactor;
 
     /** @see #tempDisableAutoCompaction */
-    protected transient boolean _autoCompactTemporaryDisable = false;
+    private transient boolean _autoCompactTemporaryDisable = false;
 
 
     /**
@@ -130,15 +152,89 @@ abstract public class TinyTHash implements Externalizable {
         } else if ( 0.0f >= loadFactor ) {
             throw new IllegalArgumentException( "load factor out of range: " + loadFactor );
         }
-        _loadFactor = loadFactor;
+        _loadFactor( loadFactor );
 
         // Through testing, the load factor (especially the default load factor) has been
         // found to be a pretty good starting auto-compaction factor.
-        _autoCompactionFactor = loadFactor;
+        _autoCompactionFactor( loadFactor );
 
         // Floats have 24 significand bits, causing loss of precision for initial capacities > ~17 million
-        setUp( saturatedCast( fastCeil( initialCapacity / (double) loadFactor ) ) );
+        setUp( saturatedCast( fastCeil( initialCapacity / (double) _loadFactor() ) ) );
     }
+    
+    //////////////////////////
+    // -------------------- //
+    // |  Field accessors | //
+    // -------------------- //
+    //////////////////////////
+
+    /* TODO: This is not the best way to approach this but it was the easiest and safest */
+
+    protected int _size() {
+        return uint( _size );
+    }
+
+    protected void _size( int size ) {
+        _size = ushort( size );
+    }
+
+    protected int _free() {
+        return uint( _free );
+    }
+
+    protected void _free( int free ) {
+        _free = ushort( free );
+    }
+
+    protected float _loadFactor() {
+        return (float) decodeLoadFactor( _loadFactor );
+    }
+
+    protected void _loadFactor( float loadFactor ) {
+        _loadFactor = encodeLoadFactor( loadFactor );
+    }
+
+    protected int _maxSize() {
+        return uint( _maxSize );
+    }
+
+    protected void _maxSize( int maxSize ) {
+        _maxSize = ushort( maxSize );
+    }
+
+    protected int _autoCompactRemovesRemaining() {
+        return uint( _autoCompactRemovesRemaining );
+    }
+
+    protected void _autoCompactRemovesRemaining( int autoCompactRemovesRemaining ) {
+        if (autoCompactRemovesRemaining == -1) {
+            autoCompactRemovesRemaining = 0;
+        }
+
+        _autoCompactRemovesRemaining = ushort( autoCompactRemovesRemaining );
+    }
+
+    protected float _autoCompactionFactor() {
+        return (float) decodeLoadFactor( _autoCompactionFactor );
+    }
+
+    protected void _autoCompactionFactor( float autoCompactionFactor ) {
+        _autoCompactionFactor = encodeLoadFactor( autoCompactionFactor );
+    }
+
+    protected boolean _autoCompactTemporaryDisable() {
+        return _autoCompactTemporaryDisable;
+    }
+
+    protected void _autoCompactTemporaryDisable(boolean autoCompactTemporaryDisable) {
+        _autoCompactTemporaryDisable = autoCompactTemporaryDisable;
+    }
+
+    /////////////////////////////////
+    // --------------------------- //
+    // |  End of field accessors | //
+    // --------------------------- //
+    /////////////////////////////////
 
     /*
      * In profiling, it has been found to be faster to have our own local implementation
@@ -167,7 +263,7 @@ abstract public class TinyTHash implements Externalizable {
      * @return a <code>boolean</code> value
      */
     public boolean isEmpty() {
-        return 0 == _size;
+        return 0 == _size();
     }
 
 
@@ -177,7 +273,7 @@ abstract public class TinyTHash implements Externalizable {
      * @return an <code>int</code> value
      */
     public int size() {
-        return _size;
+        return _size();
     }
 
 
@@ -194,12 +290,9 @@ abstract public class TinyTHash implements Externalizable {
      * @param desiredCapacity an <code>int</code> value
      */
     public void ensureCapacity( int desiredCapacity ) {
-        if ( desiredCapacity > ( _maxSize - size() ) ) {
-            rehash( TinyPrimeFinder.nextPrime(Math.max( _size + 1,
-               saturatedCast( fastCeil( ( desiredCapacity + _size ) / (double) _loadFactor) + 1 ) ) ) );
-            if ( capacity() >= TinyPrimeFinder.largestPrime ) {
-                _loadFactor = 1.0f;
-            }
+        if ( desiredCapacity > ( _maxSize() - size() ) ) {
+            rehash( TinyPrimeFinder.nextPrime(Math.max( _size() + 1,
+               saturatedCast( fastCeil( ( desiredCapacity + _size() ) / (double) _loadFactor()) + 1 ) ) ) );
             computeMaxSize( capacity() );
         }
     }
@@ -223,12 +316,12 @@ abstract public class TinyTHash implements Externalizable {
      */
     public void compact() {
         // need at least one free spot for open addressing
-        rehash( TinyPrimeFinder.nextPrime( Math.max( _size + 1,
-	        saturatedCast( fastCeil( _size / (double) _loadFactor ) + 1 ) ) ) );
+        rehash( TinyPrimeFinder.nextPrime( Math.max( _size() + 1,
+            saturatedCast( fastCeil( _size() / (double) _loadFactor() ) + 1 ) ) ) );
         computeMaxSize( capacity() );
 
         // If auto-compaction is enabled, re-determine the compaction interval
-        if ( _autoCompactionFactor != 0 ) {
+        if ( _autoCompactionFactor() != 0 ) {
             computeNextAutoCompactionAmount( size() );
         }
     }
@@ -250,7 +343,7 @@ abstract public class TinyTHash implements Externalizable {
             throw new IllegalArgumentException( "Factor must be >= 0: " + factor );
         }
 
-        _autoCompactionFactor = factor;
+        _autoCompactionFactor( factor );
     }
 
 
@@ -260,7 +353,7 @@ abstract public class TinyTHash implements Externalizable {
      * @return a <tt>float</tt> that represents the auto-compaction factor.
      */
     public float getAutoCompactionFactor() {
-        return _autoCompactionFactor;
+        return _autoCompactionFactor();
     }
 
 
@@ -285,13 +378,13 @@ abstract public class TinyTHash implements Externalizable {
      * @param index an <code>int</code> value
      */
     protected void removeAt( int index ) {
-        _size--;
+        _size( _size() - 1 );
 
         // If auto-compaction is enabled, see if we need to compact
-        if ( _autoCompactionFactor != 0 ) {
-            _autoCompactRemovesRemaining--;
+        if ( _autoCompactionFactor() != 0 ) {
+            _autoCompactRemovesRemaining( _autoCompactRemovesRemaining() - 1 );
 
-            if ( !_autoCompactTemporaryDisable && _autoCompactRemovesRemaining <= 0 ) {
+            if ( !_autoCompactTemporaryDisable() && _autoCompactRemovesRemaining() <= 0 ) {
                 // Do the compact
                 // NOTE: this will cause the next compaction interval to be calculated
                 compact();
@@ -302,8 +395,8 @@ abstract public class TinyTHash implements Externalizable {
 
     /** Empties the collection. */
     public void clear() {
-        _size = 0;
-        _free = capacity();
+        _size( 0 );
+        _free( capacity() );
     }
 
 
@@ -318,9 +411,6 @@ abstract public class TinyTHash implements Externalizable {
         int capacity;
 
         capacity = TinyPrimeFinder.nextPrime( initialCapacity );
-        if ( capacity >= TinyPrimeFinder.largestPrime ) {
-            _loadFactor = 1.0f;
-        }
         computeMaxSize( capacity );
         computeNextAutoCompactionAmount( initialCapacity );
 
@@ -341,7 +431,7 @@ abstract public class TinyTHash implements Externalizable {
      * {@link #reenableAutoCompaction}.
      */
     public void tempDisableAutoCompaction() {
-        _autoCompactTemporaryDisable = true;
+        _autoCompactTemporaryDisable( true );
     }
 
 
@@ -354,10 +444,10 @@ abstract public class TinyTHash implements Externalizable {
      *                             performed.
      */
     public void reenableAutoCompaction( boolean check_for_compaction ) {
-        _autoCompactTemporaryDisable = false;
+        _autoCompactTemporaryDisable( false );
 
-        if ( check_for_compaction && _autoCompactRemovesRemaining <= 0 &&
-             _autoCompactionFactor != 0 ) {
+        if ( check_for_compaction && _autoCompactRemovesRemaining() <= 0 &&
+             _autoCompactionFactor() != 0 ) {
 
             // Do the compact
             // NOTE: this will cause the next compaction interval to be calculated
@@ -373,9 +463,16 @@ abstract public class TinyTHash implements Externalizable {
      * @param capacity an <code>int</code> value
      */
     protected void computeMaxSize( int capacity ) {
+        int maxSize;
+        if ( capacity >= TinyPrimeFinder.largestPrime ) {
+            maxSize = TinyPrimeFinder.largestPrime;
+        } else {
+            maxSize = (int) ( capacity * _loadFactor() );
+        }
+
         // need at least one free slot for open addressing
-        _maxSize = Math.min( capacity - 1, (int) ( capacity * _loadFactor ) );
-        _free = capacity - _size; // reset the free element count
+        _maxSize( Math.min( capacity - 1, maxSize) );
+        _free( capacity - _size() ); // reset the free element count
     }
 
 
@@ -386,11 +483,11 @@ abstract public class TinyTHash implements Externalizable {
      * @param size an <tt>int</tt> that sets the auto-compaction limit.
      */
     protected void computeNextAutoCompactionAmount( int size ) {
-        if ( _autoCompactionFactor != 0 ) {
+        if ( _autoCompactionFactor() != 0 ) {
             // NOTE: doing the round ourselves has been found to be faster than using
             //       Math.round.
-            _autoCompactRemovesRemaining =
-                    (int) ( ( size * _autoCompactionFactor ) + 0.5f );
+            _autoCompactRemovesRemaining(
+                    (int) ( ( size * _autoCompactionFactor() ) + 0.5f ) );
         }
     }
 
@@ -403,16 +500,18 @@ abstract public class TinyTHash implements Externalizable {
      */
     protected final void postInsertHook( boolean usedFreeSlot ) {
         if ( usedFreeSlot ) {
-            _free--;
+            _free( _free() - 1 );
         }
 
         // rehash whenever we exhaust the available space in the table
-        if ( ++_size > _maxSize || _free == 0 ) {
+        int _size = _size() + 1;
+        _size( _size );
+        if ( _size > _maxSize() || _free() == 0 ) {
             // choose a new capacity suited to the new state of the table
             // if we've grown beyond our maximum size, double capacity;
             // if we've exhausted the free spots, rehash to the same capacity,
             // which will free up any stale removed slots for reuse.
-            int newCapacity = _size > _maxSize ? TinyPrimeFinder.nextPrime( capacity() << 1 ) : capacity();
+            int newCapacity = _size > _maxSize() ? TinyPrimeFinder.nextPrime( capacity() << 1 ) : capacity();
             rehash( newCapacity );
             computeMaxSize( capacity() );
         }
@@ -429,10 +528,10 @@ abstract public class TinyTHash implements Externalizable {
         out.writeByte( 0 );
 
         // LOAD FACTOR
-        out.writeFloat( _loadFactor );
+        out.writeFloat( _loadFactor() );
 
         // AUTO COMPACTION LOAD FACTOR
-        out.writeFloat( _autoCompactionFactor );
+        out.writeFloat( _autoCompactionFactor() );
     }
 
 
@@ -443,15 +542,15 @@ abstract public class TinyTHash implements Externalizable {
         in.readByte();
 
         // LOAD FACTOR
-        float old_factor = _loadFactor;
-        _loadFactor = Math.abs( in.readFloat() );
+        float old_factor = _loadFactor();
+        _loadFactor( Math.abs( in.readFloat() ) );
 
         // AUTO COMPACTION LOAD FACTOR
-        _autoCompactionFactor = in.readFloat();
+        _autoCompactionFactor( in.readFloat() );
 
         // If we change the laod factor from the default, re-setup
-        if ( old_factor != _loadFactor ) {
-            setUp( saturatedCast((long) Math.ceil(DEFAULT_CAPACITY / (double) _loadFactor)) );
+        if ( old_factor != _loadFactor() ) {
+            setUp( saturatedCast((long) Math.ceil(DEFAULT_CAPACITY / (double) _loadFactor())) );
         }
     }
 }// THash

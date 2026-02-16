@@ -20,6 +20,7 @@
 
 package com.jockie.jda.memory.map.tiny.trove;
 
+import gnu.trove.impl.hash.TObjectHash;
 import gnu.trove.procedure.TObjectProcedure;
 
 import java.io.IOException;
@@ -51,7 +52,8 @@ abstract public class TinyTObjectHash<T> extends TinyTHash {
      */
     public transient Object[] _set;
 
-    public static final Object REMOVED = new Object(), FREE = new Object();
+    /* NOTE: Sharing the same objects with TObjectHash so we can easily convert between the two. */
+    public static final Object REMOVED = TObjectHash.REMOVED, FREE = TObjectHash.FREE;
 
     /**
      * Indicates whether the last insertKey() call used a FREE slot. This field

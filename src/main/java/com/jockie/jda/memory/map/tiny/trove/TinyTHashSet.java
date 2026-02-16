@@ -372,7 +372,7 @@ public class TinyTHashSet<E> extends TinyTObjectHash<E>
         super.writeExternal(out);
 
         // NUMBER OF ENTRIES
-        out.writeInt(_size);
+        out.writeInt(_size());
 
         // ENTRIES
         writeEntries(out);
